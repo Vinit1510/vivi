@@ -116,7 +116,7 @@ def get_dashboard_stats():
         return {
             "total_ingested": total_rounds,
             "prediction_enabled": is_active,
-            "next_period": next_id,
+            "next_period": str(next_id),
             "forecast": forecast,
             "stats": stats
         }
@@ -156,7 +156,7 @@ def get_date_details(target_date: str):
                 COUNT(*) as count,
                 JSON_AGG(
                     JSON_BUILD_OBJECT(
-                        'period_id', period_id,
+                        'period_id', period_id::TEXT,
                         'number', number,
                         'size', size,
                         'color', color,
