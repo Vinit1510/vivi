@@ -1,0 +1,124 @@
+import os
+import time
+import requests
+import threading
+import traceback
+import json
+from datetime import datetime, timezone
+from db import db_mgr, execute_one
+
+# Constants
+WINGO_URL = "https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json"
+INTERVAL = 5  # Poll every 5 seconds
+
+def get_color(number):
+    num = int(number)
+    if num == 0: return "RedViolet"
+    if num == 5: return "GreenViolet"
+    if num in [1, 3, 7, 9]: return "Green"
+    return "Red"
+
+def get_size(number):
+    return "Big" if int(number) >= 5 else "Small"
+
+def fetch_data():
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json",
+        "Referer": "https://draw.ar-lottery01.com/"
+    }
+    # Add dummy cache buster timestamp
+    ts = int(time.time() * 1000)
+    url = f"{WINGO_URL}?ts={ts}"
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            # Data is usually in data -> list
+            if isinstance(data, dict):
+                return data.get("data", {}).get("list", []) or []
+            elif isinstance(data, list):
+                return data
+        return []
+    except Exception as e:
+        print(f"❌ Miner Network Error: {e}")
+        return []
+
+def process_records(records):
+    if not records:
+        return 0
+    
+    saved_count = 0
+    
+    # Process oldest to newest
+    for rec in reversed(records):
+        try:
+            period_id = int(rec.get("issueNumber"))
+            num = int(rec.get("number"))
+            size = get_size(num)
+            color = get_color(num)
+            raw = json.dumps(rec)
+            
+            # Insert into rounds
+            conn = db_mgr.get_conn()
+            conn.autocommit = True
+            cursor = conn.cursor()
+            try:
+                cursor.execute("""
+                    INSERT INTO rounds (period_id, number, size, color, raw_json)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (period_id) DO NOTHING
+                    RETURNING id;
+                """, (period_id, num, size, color, raw))
+                row = cursor.fetchone()
+                if row:
+                    saved_count += 1
+                    # Post-save trigger for updating prediction outcomes if they exist
+                    cursor.execute("""
+                        UPDATE predictions
+                        SET actual_size = %s,
+                            actual_color = %s,
+                            size_result = CASE WHEN predicted_size = %s THEN 'WIN' ELSE 'LOSS' END,
+                            color_result = CASE WHEN predicted_color = %s THEN 'WIN' ELSE 'LOSS' END,
+                            is_processed = TRUE
+                        WHERE period_id = %s AND is_processed = FALSE;
+                    """, (size, color, size, color, period_id))
+            finally:
+                cursor.close()
+                db_mgr.release_conn(conn)
+                
+        except Exception as ex:
+            print(f"⚠️ Error inserting record: {ex}")
+            continue
+            
+    return saved_count
+
+def start_miner_loop():
+    print("🚀 Initializing Vivi 24/7 Miner...")
+    db_mgr.connect()
+    
+    last_logged = 0
+    
+    while True:
+        try:
+            records = fetch_data()
+            inserted = process_records(records)
+            
+            if inserted > 0:
+                print(f"📦 Data Ingested: Added {inserted} new rounds from source.")
+                
+            time.sleep(INTERVAL)
+            
+        except KeyboardInterrupt:
+            print("Stopping miner gracefully...")
+            break
+        except Exception as e:
+            print(f"🔥 FATAL MINER LOOP EXCEPTION:")
+            traceback.print_exc()
+            time.sleep(10) # Wait longer before retrying after critical crash
+
+def run_in_background():
+    miner_thread = threading.Thread(target=start_miner_loop, daemon=True)
+    miner_thread.start()
+    print("⚡ Miner detached to background thread.")

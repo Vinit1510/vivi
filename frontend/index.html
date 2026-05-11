@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIVI | 30s Prediction Engine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="vivi-dark-theme">
+    <!-- Dynamic particle background container -->
+    <div class="glass-bg-overlay"></div>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+
+    <nav class="navbar glass">
+        <div class="nav-brand">
+            <span class="logo-gradient">VIVI</span>
+            <div class="pulse-indicator">
+                <span class="dot online"></span>
+                <span class="pulse-text">ENGINE LIVE</span>
+            </div>
+        </div>
+        
+        <div class="nav-controls">
+            <div class="live-clock" id="clock">00:00:00</div>
+        </div>
+    </nav>
+
+    <main class="app-container">
+        
+        <!-- Top Statistics Hub -->
+        <section class="stats-grid">
+            <div class="stat-card glass tilt-effect">
+                <div class="stat-icon color-cyan">
+                    <span class="material-symbols-rounded">database</span>
+                </div>
+                <div class="stat-details">
+                    <p class="stat-label">Brain Database</p>
+                    <h3 class="stat-value" id="count-rounds">0</h3>
+                    <p class="stat-sub">Total Rounds Ingested</p>
+                </div>
+            </div>
+            <div class="stat-card glass tilt-effect">
+                <div class="stat-icon color-purple">
+                    <span class="material-symbols-rounded">query_stats</span>
+                </div>
+                <div class="stat-details">
+                    <p class="stat-label">Size Accuracy</p>
+                    <h3 class="stat-value" id="acc-size">0%</h3>
+                    <div class="mini-progress"><div class="fill" id="fill-size" style="width: 0%;"></div></div>
+                </div>
+            </div>
+            <div class="stat-card glass tilt-effect">
+                <div class="stat-icon color-pink">
+                    <span class="material-symbols-rounded">palette</span>
+                </div>
+                <div class="stat-details">
+                    <p class="stat-label">Color Accuracy</p>
+                    <h3 class="stat-value" id="acc-color">0%</h3>
+                    <div class="mini-progress"><div class="fill" id="fill-color" style="width: 0%;"></div></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Action Center -->
+        <section class="action-row">
+            <div class="glass control-panel">
+                <h2>Prediction Autonomy</h2>
+                <p class="helper-text">System constantly trains. Activate below to compute real-time next steps.</p>
+                
+                <button id="btn-toggle-prediction" class="mega-btn is-stopped">
+                    <span class="material-symbols-rounded">play_arrow</span>
+                    <span id="toggle-text">START PREDICTION</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Data Explorer Section (Filtering) -->
+        <section class="history-section">
+            <div class="section-header">
+                <h2><span class="material-symbols-rounded">history</span> Historical Timeline</h2>
+                <div class="date-selector-container" id="date-chips">
+                    <!-- Populated via JS -->
+                    <span class="loading-spinner"></span>
+                </div>
+            </div>
+
+            <div class="timeline-layout">
+                <!-- Expandable Hour Cards get injected here -->
+                <div class="accordion-container" id="history-accordion">
+                    <div class="empty-state">
+                        <span class="material-symbols-rounded icon-xl">event_busy</span>
+                        <p>Select a valid date above to view round breakdowns.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
