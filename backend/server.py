@@ -19,11 +19,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Startup lifecycle
+# Startup lifecycle with auto-table creation
 @app.on_event("startup")
 async def startup_event():
     print("--- 🚀 Starting VIVI Backend Node ---")
+    
+    # 1. Initialize DB Pool
     db_mgr.connect()
+    
+    # 2. Auto-Execute Schema to prevent "Relation missing" errors
+    try:
+        schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
+        if os.path.exists(schema_path):
+            print("🛠️ Verifying database schema...")
+            with open(schema_path, 'r') as f:
+                sql = f.read()
+            # Execute raw schema file split by semicolon or as one transaction
+            execute_one(sql)
+            print("✅ Database structural integrity verified.")
+    except Exception as schema_err:
+        print(f"⚠️ Warn during auto-schema: {schema_err}")
+
+    # 3. Ignite autonomous miner
     miner.run_in_background()
     print("VIVI System Fully Online.")
 
