@@ -1,4 +1,5 @@
-const API_BASE = 'http://localhost:8000';
+// Automatically uses the same domain whether localhost or Render
+const API_BASE = window.location.origin;
 
 // DOM References
 const clockEl = document.getElementById('clock');

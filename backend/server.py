@@ -1,6 +1,7 @@
-import os
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from typing import Optional, List
 from datetime import datetime
 import uvicorn
@@ -18,20 +19,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Startup lifecycle
 @app.on_event("startup")
 async def startup_event():
     print("--- 🚀 Starting VIVI Backend Node ---")
-    # 1. Connect Database Pool
     db_mgr.connect()
-    
-    # 2. Ignite 24/7 Data Ingestion System
     miner.run_in_background()
-    
     print("VIVI System Fully Online.")
 
+import os
+
+# Root path serves Index.html
 @app.get("/")
-def root():
-    return {"status": "online", "system": "Vivi", "engine": "WinGo 30S Continuous"}
+def get_dashboard():
+    frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "index.html")
+    return FileResponse(frontend_path)
 
 @app.get("/api/dashboard-stats")
 def get_dashboard_stats():
@@ -117,6 +119,9 @@ def toggle_prediction(status: bool):
         return {"success": True, "prediction_active": status}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Mount entire frontend folder to serve static assets (style.css, app.js) directly at root
+app.mount("/", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "..", "frontend")), name="frontend")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
