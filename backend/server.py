@@ -84,10 +84,10 @@ def get_dashboard_stats():
 
 @app.get("/api/available-dates")
 def get_available_dates():
-    """Returns sorted list of dates with data."""
+    """Returns sorted list of dates with data, casted to IST."""
     try:
         res = fetch_all("""
-            SELECT DISTINCT DATE_TRUNC('day', created_at AT TIME ZONE 'UTC')::date as valid_date 
+            SELECT DISTINCT DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Kolkata')::date as valid_date 
             FROM rounds 
             ORDER BY valid_date DESC 
             LIMIT 30;
@@ -98,12 +98,17 @@ def get_available_dates():
 
 @app.get("/api/history/date/{target_date}")
 def get_date_details(target_date: str):
-    """Retrieves nested hierarchical JSON (Hour -> Rounds) for filtering."""
+    """Retrieves nested hierarchical JSON grouped by Indian Time hours."""
     try:
-        # SQL to group by hour efficiently
         query = """
+            WITH ist_rounds AS (
+                SELECT 
+                    period_id, number, size, color, 
+                    created_at AT TIME ZONE 'Asia/Kolkata' as local_time
+                FROM rounds
+            )
             SELECT 
-                EXTRACT(HOUR FROM created_at) as hour,
+                EXTRACT(HOUR FROM local_time) as hour,
                 COUNT(*) as count,
                 JSON_AGG(
                     JSON_BUILD_OBJECT(
@@ -111,12 +116,12 @@ def get_date_details(target_date: str):
                         'number', number,
                         'size', size,
                         'color', color,
-                        'time', created_at::time
+                        'time', local_time::time
                     ) ORDER BY period_id DESC
                 ) as rounds
-            FROM rounds
-            WHERE created_at::date = %s
-            GROUP BY EXTRACT(HOUR FROM created_at)
+            FROM ist_rounds
+            WHERE local_time::date = %s
+            GROUP BY EXTRACT(HOUR FROM local_time)
             ORDER BY hour DESC;
         """
         results = fetch_all(query, (target_date,))
