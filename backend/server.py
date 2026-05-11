@@ -31,12 +31,33 @@ async def startup_event():
     try:
         schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
         if os.path.exists(schema_path):
-            print("🛠️ Verifying database schema...")
+            print("🛠️ Verifying database schema and patching constraints...")
             with open(schema_path, 'r') as f:
                 sql = f.read()
-            # Execute raw schema file split by semicolon or as one transaction
             execute_one(sql)
-            print("✅ Database structural integrity verified.")
+            
+            # REPAIR / MAINTENANCE: Ensure uniqueness in case of faulty manual initial create
+            maintenance_sql = """
+                -- 1. Delete physical duplicates keeping highest ID
+                DELETE FROM rounds a USING (
+                    SELECT MIN(id) as keep_id, period_id 
+                    FROM rounds 
+                    GROUP BY period_id HAVING COUNT(*) > 1
+                ) b
+                WHERE a.period_id = b.period_id AND a.id != b.keep_id;
+
+                -- 2. Force add UNIQUE constraint safely if it didn't bind correctly
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_rounds_period') THEN
+                        ALTER TABLE rounds ADD CONSTRAINT uq_rounds_period UNIQUE (period_id);
+                    END IF;
+                EXCEPTION WHEN OTHERS THEN 
+                    NULL; -- If already exists, skip
+                END $$;
+            """
+            execute_one(maintenance_sql)
+            print("✅ Database structural integrity verified & healed.")
     except Exception as schema_err:
         print(f"⚠️ Warn during auto-schema: {schema_err}")
 
