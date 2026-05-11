@@ -73,15 +73,26 @@ def get_dashboard():
     frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "index.html")
     return FileResponse(frontend_path)
 
+import brain
+
 @app.get("/api/dashboard-stats")
 def get_dashboard_stats():
-    """Provides top-level overview stats."""
+    """Provides top-level overview stats and immediate next forecast."""
     try:
-        total_rounds = execute_one("SELECT COUNT(*) FROM rounds;")[0]
-        recent = fetch_all("SELECT * FROM rounds ORDER BY period_id DESC LIMIT 10")
+        total_rounds_res = execute_one("SELECT COUNT(*) FROM rounds;")
+        total_rounds = total_rounds_res[0] if total_rounds_res else 0
+        
+        recent = fetch_all("SELECT period_id FROM rounds ORDER BY period_id DESC LIMIT 1")
+        latest_id = recent[0]["period_id"] if recent else 0
+        next_id = latest_id + 1 if latest_id > 0 else "PENDING"
         
         active_res = execute_one("SELECT value FROM system_config WHERE key = 'prediction_active'")
         is_active = active_res[0] == 'true' if active_res else False
+        
+        # Get current brain analysis
+        forecast = {"size": "WAIT", "color": "TRAINING", "confidence": 0}
+        if is_active:
+            forecast = brain.generate_forecast()
         
         # Calculate accuracy for size and color
         acc_res = fetch_all("""
@@ -92,12 +103,13 @@ def get_dashboard_stats():
             FROM predictions
         """)
         
-        stats = acc_res[0] if acc_res else {"size_wins":0, "color_wins":0, "total_preds":0}
+        stats = acc_res[0] if (acc_res and acc_res[0]["total_preds"] is not None) else {"size_wins":0, "color_wins":0, "total_preds":0}
         
         return {
             "total_ingested": total_rounds,
             "prediction_enabled": is_active,
-            "recent_rounds": recent,
+            "next_period": next_id,
+            "forecast": forecast,
             "stats": stats
         }
     except Exception as e:

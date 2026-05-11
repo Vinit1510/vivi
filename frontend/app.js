@@ -20,6 +20,13 @@ setInterval(() => {
     clockEl.textContent = new Date().toLocaleTimeString();
 }, 1000);
 
+// Dom Refs for Prediction Box
+const predPeriodEl = document.getElementById('pred-period-id');
+const fSizeEl = document.getElementById('forecast-size');
+const fColorEl = document.getElementById('forecast-color');
+const confBarEl = document.getElementById('conf-bar');
+const confTextEl = document.getElementById('conf-pct');
+
 // 📈 Fetch Stats
 async function fetchStats() {
     try {
@@ -28,7 +35,20 @@ async function fetchStats() {
         
         countRoundsEl.textContent = parseInt(data.total_ingested).toLocaleString();
         
-        // Process accuracy
+        // Update Live Prediction Elements
+        predPeriodEl.textContent = `PERIOD: ...${data.next_period.toString().slice(-6)}`;
+        const fore = data.forecast;
+        
+        fSizeEl.textContent = fore.size.toUpperCase();
+        fSizeEl.className = `forecast-bubble ${fore.size.toLowerCase()}`;
+        
+        fColorEl.textContent = fore.color.toUpperCase();
+        fColorEl.className = `forecast-bubble ${fore.color.toLowerCase()}`;
+        
+        confBarEl.style.width = `${fore.confidence}%`;
+        confTextEl.textContent = `${fore.confidence}% MATCH`;
+
+        // Process overall accuracy
         const stats = data.stats;
         const total = stats.total_preds || 0;
         
