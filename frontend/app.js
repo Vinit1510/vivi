@@ -171,21 +171,39 @@ async function loadTimeline(dateStr) {
                                 <tr>
                                     <th>Period</th>
                                     <th>Time</th>
-                                    <th>Number</th>
-                                    <th>Size</th>
-                                    <th>Color</th>
+                                    <th>Num</th>
+                                    <th>Actual Size</th>
+                                    <th>Size Pred.</th>
+                                    <th>Size Result</th>
+                                    <th>Actual Color</th>
+                                    <th>Color Pred.</th>
+                                    <th>Color Result</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                ${item.rounds.map(r => `
+                                ${item.rounds.map(r => {
+                                    const sizePred = r.p_size ? `<span class="pred-tag">${r.p_size.toUpperCase()}</span>` : '-';
+                                    const colorPred = r.p_color ? `<span class="pred-tag">${r.p_color.toUpperCase()}</span>` : '-';
+                                    
+                                    const sizeResClass = r.r_size === 'WIN' ? 'res-win' : r.r_size === 'LOSS' ? 'res-loss' : '';
+                                    const colorResClass = r.r_color === 'WIN' ? 'res-win' : r.r_color === 'LOSS' ? 'res-loss' : '';
+                                    
+                                    const sizeResHtml = r.r_size ? `<span class="outcome-badge ${sizeResClass}">${r.r_size === 'WIN'?'✓':'✕'} ${r.r_size}</span>` : '<span style="color:#555">-</span>';
+                                    const colorResHtml = r.r_color ? `<span class="outcome-badge ${colorResClass}">${r.r_color === 'WIN'?'✓':'✕'} ${r.r_color}</span>` : '<span style="color:#555">-</span>';
+
+                                    return `
                                     <tr>
                                         <td style="font-weight:bold; color: white;">...${r.period_id.toString().slice(-5)}</td>
-                                        <td style="color: #888;">${r.time.split('.')[0]}</td>
-                                        <td style="font-size: 18px;">${r.number}</td>
+                                        <td style="color: #888; font-size:12px;">${r.time.split('.')[0]}</td>
+                                        <td style="font-size: 16px; font-weight:bold;">${r.number}</td>
                                         <td><span class="badge-res ${r.size.toLowerCase() === 'big' ? 'b-big' : 'b-small'}">${r.size.toUpperCase()}</span></td>
+                                        <td>${sizePred}</td>
+                                        <td>${sizeResHtml}</td>
                                         <td class="${getColorClass(r.color)}">${r.color}</td>
+                                        <td>${colorPred}</td>
+                                        <td>${colorResHtml}</td>
                                     </tr>
-                                `).join('')}
+                                `;}).join('')}
                             </tbody>
                         </table>
                     </div>

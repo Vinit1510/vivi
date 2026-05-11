@@ -139,14 +139,17 @@ def get_available_dates():
 
 @app.get("/api/history/date/{target_date}")
 def get_date_details(target_date: str):
-    """Retrieves nested hierarchical JSON grouped by Indian Time hours."""
+    """Retrieves nested hierarchical JSON grouped by Indian Time hours including outcome tracking."""
     try:
         query = """
             WITH ist_rounds AS (
                 SELECT 
-                    period_id, number, size, color, 
-                    created_at AT TIME ZONE 'Asia/Kolkata' as local_time
-                FROM rounds
+                    r.period_id, r.number, r.size, r.color, 
+                    r.created_at AT TIME ZONE 'Asia/Kolkata' as local_time,
+                    p.predicted_size, p.predicted_color,
+                    p.size_result, p.color_result
+                FROM rounds r
+                LEFT JOIN predictions p ON r.period_id = p.period_id
             )
             SELECT 
                 EXTRACT(HOUR FROM local_time) as hour,
@@ -157,7 +160,11 @@ def get_date_details(target_date: str):
                         'number', number,
                         'size', size,
                         'color', color,
-                        'time', local_time::time
+                        'time', local_time::time,
+                        'p_size', predicted_size,
+                        'p_color', predicted_color,
+                        'r_size', size_result,
+                        'r_color', color_result
                     ) ORDER BY period_id DESC
                 ) as rounds
             FROM ist_rounds
