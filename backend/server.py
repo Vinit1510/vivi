@@ -38,7 +38,15 @@ async def startup_event():
             
             # REPAIR / MAINTENANCE: Ensure uniqueness in case of faulty manual initial create
             maintenance_sql = """
-                -- 1. Delete physical duplicates keeping highest ID
+                -- 1. Upgrade column type to force absolute timezone storage if not already
+                DO $$
+                BEGIN
+                    ALTER TABLE rounds ALTER COLUMN created_at TYPE TIMESTAMPTZ;
+                EXCEPTION WHEN OTHERS THEN
+                    NULL;
+                END $$;
+
+                -- 2. Delete physical duplicates keeping highest ID
                 DELETE FROM rounds a USING (
                     SELECT MIN(id) as keep_id, period_id 
                     FROM rounds 
@@ -46,14 +54,14 @@ async def startup_event():
                 ) b
                 WHERE a.period_id = b.period_id AND a.id != b.keep_id;
 
-                -- 2. Force add UNIQUE constraint safely if it didn't bind correctly
+                -- 3. Force add UNIQUE constraint safely if it didn't bind correctly
                 DO $$
                 BEGIN
                     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_rounds_period') THEN
                         ALTER TABLE rounds ADD CONSTRAINT uq_rounds_period UNIQUE (period_id);
                     END IF;
                 EXCEPTION WHEN OTHERS THEN 
-                    NULL; -- If already exists, skip
+                    NULL; 
                 END $$;
             """
             execute_one(maintenance_sql)

@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS rounds (
     size VARCHAR(10) NOT NULL, -- "Big" or "Small"
     color VARCHAR(20) NOT NULL, -- "Red", "Green", "Violet", or "RedViolet", etc.
     raw_json TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Index for faster filtering by creation date/time
