@@ -75,8 +75,9 @@ async def startup_event():
 
 import os
 
-# Root path serves Index.html
+# Root path serves Index.html (Supports GET and HEAD for Monitoring bots)
 @app.get("/")
+@app.head("/")
 def get_dashboard():
     frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "index.html")
     return FileResponse(frontend_path)
