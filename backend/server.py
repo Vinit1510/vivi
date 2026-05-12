@@ -102,6 +102,13 @@ def get_dashboard_stats():
         forecast = {"size": "WAIT", "color": "TRAINING", "confidence": 0}
         if is_active:
             forecast = brain.generate_forecast()
+            # Save live prediction to database immediately so miner can grade it later!
+            if forecast["size"] != "WAIT" and next_id != "PENDING":
+                 execute_one("""
+                     INSERT INTO predictions (period_id, predicted_size, predicted_color, created_at)
+                     VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+                     ON CONFLICT (period_id) DO NOTHING;
+                 """, (next_id, forecast["size"], forecast["color"]))
         
         # Calculate accuracy for size and color
         acc_res = fetch_all("""
