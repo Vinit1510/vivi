@@ -181,6 +181,9 @@ def get_date_details(target_date: str):
             SELECT 
                 EXTRACT(HOUR FROM local_time) as hour,
                 COUNT(*) as count,
+                COUNT(*) FILTER (WHERE size_result IS NOT NULL) as total_preds,
+                COUNT(*) FILTER (WHERE size_result = 'WIN') as size_wins,
+                COUNT(*) FILTER (WHERE color_result = 'WIN') as color_wins,
                 JSON_AGG(
                     JSON_BUILD_OBJECT(
                         'period_id', period_id::TEXT,

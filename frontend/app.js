@@ -189,12 +189,22 @@ async function loadTimeline(dateStr, isSilent = false) {
             const hourInt = parseInt(item.hour);
             const displayTime = formatHour(hourInt);
 
+            // Calculate hourly predictive performance
+            const hasPreds = item.total_preds > 0;
+            const sPct = hasPreds ? Math.round((item.size_wins / item.total_preds) * 100) : 0;
+            const cPct = hasPreds ? Math.round((item.color_wins / item.total_preds) * 100) : 0;
+            
+            const winRateHtml = hasPreds 
+                ? `<span class="hour-win-rate">🎯 WIN RATE: <strong style="color:var(--accent-cyan); margin-left: 5px;">SZ ${sPct}%</strong> | <strong style="color:var(--accent-pink)">CL ${cPct}%</strong></span>`
+                : '';
+
             card.innerHTML = `
                 <div class="hour-header">
                     <div class="hour-title">
                         <span class="material-symbols-rounded" style="color: var(--accent-cyan)">schedule</span>
                         ${displayTime} 
                         <span class="hour-count">${item.count} Rounds</span>
+                        ${winRateHtml}
                     </div>
                     <span class="material-symbols-rounded chevron">expand_more</span>
                 </div>

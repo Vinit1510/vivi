@@ -378,6 +378,17 @@ body::before {
 }
 .hour-title { font-weight: 700; font-size: 18px; display: flex; align-items: center; gap: 10px; }
 .hour-count { font-size: 13px; background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 20px; color: var(--text-secondary);}
+.hour-win-rate {
+    font-size: 13px; 
+    background: rgba(255, 255, 255, 0.04); 
+    padding: 4px 12px; 
+    border-radius: 20px; 
+    color: var(--text-secondary);
+    border: 1px solid rgba(255,255,255,0.06);
+    font-weight: 600;
+    margin-left: 10px;
+    font-family: 'Space Grotesk', sans-serif;
+}
 .chevron { transition: transform 0.3s ease; }
 .hour-card.expanded .chevron { transform: rotate(180deg); }
 
