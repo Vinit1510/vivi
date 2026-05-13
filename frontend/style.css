@@ -83,8 +83,8 @@ body::before {
     position: sticky;
     top: 15px;
     margin: 15px auto;
-    width: 95%;
-    max-width: 1200px;
+    width: 97%;
+    max-width: 1850px; /* Massively expanded to use all screen space */
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -125,7 +125,8 @@ body::before {
 
 /* Main Container */
 .app-container {
-    max-width: 1200px;
+    width: 97%;
+    max-width: 1850px; /* Massively expanded to use all screen space */
     margin: 0 auto;
     padding: 20px;
     display: flex;
@@ -473,31 +474,19 @@ td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 
 /* ==========================================================================
    TWO-COLUMN SPACIOUS DASHBOARD SPLIT
    ========================================================================== */
+/* ==========================================================================
+   THREE-COLUMN WIDESCREEN ANALYTICAL GRID
+   ========================================================================== */
 .timeline-dashboard-split {
     display: grid;
-    grid-template-columns: 350px 1fr;
-    gap: 30px;
+    grid-template-columns: 1.35fr 1fr 1fr; /* Symmetrical 3-Column Distribution */
+    gap: 25px;
     align-items: start;
     margin-top: 10px;
+    width: 100%;
 }
 
-/* High-Fidelity Stacked Sticky Column */
-.sidebar-column-left {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    position: sticky;
-    top: 100px;
-    max-height: calc(100vh - 140px);
-    overflow-y: auto;
-    padding-right: 6px;
-}
-
-/* Custom Fluid Scrollbar for Sticky Drawer */
-.sidebar-column-left::-webkit-scrollbar { width: 5px; }
-.sidebar-column-left::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 10px; }
-
-/* Dynamic Analysis Widgets */
+/* Independent Floating Dashboard Widgets */
 .sidebar-widget {
     padding: 22px;
     border-radius: 20px;
@@ -507,7 +496,17 @@ td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
     border: 1px solid rgba(255, 255, 255, 0.06);
     backdrop-filter: blur(10px);
+    
+    /* Dual Floating CSS Stickiness */
+    position: sticky;
+    top: 100px;
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
 }
+
+/* Custom Webkit Scrollbar for individual Widgets */
+.sidebar-widget::-webkit-scrollbar { width: 4px; }
+.sidebar-widget::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 10px; }
 
 /* Side Headers */
 .sidebar-header {
@@ -652,28 +651,28 @@ td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 
 }
 
 /* ==========================================================================
-   RESPONSIVE TWO-COLUMN CONVERSIONS
+   RESPONSIVE THREE-COLUMN CONVERSIONS
    ========================================================================== */
-@media (max-width: 1100px) {
+@media (max-width: 1300px) {
     .timeline-dashboard-split {
-        grid-template-columns: 1fr;
-        gap: 25px;
+        grid-template-columns: 1fr 1fr; /* Two parallel widget streams on Tablet */
+        gap: 20px;
     }
-    .sidebar-column-left {
+    #history-accordion {
+        grid-column: span 2; /* Timeline scales 100% width across the top block */
+    }
+    .sidebar-widget {
         position: relative;
         top: 0;
         max-height: none;
-        flex-direction: row;
-        flex-wrap: wrap;
         overflow: visible;
     }
-    .sidebar-widget {
-        flex: 1;
-        min-width: 280px;
-    }
 }
-@media (max-width: 650px) {
-    .sidebar-column-left {
-        flex-direction: column;
+@media (max-width: 750px) {
+    .timeline-dashboard-split {
+        grid-template-columns: 1fr; /* SIngular linear row stack on Mobile */
+    }
+    #history-accordion {
+        grid-column: span 1;
     }
 }
