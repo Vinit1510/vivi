@@ -83,7 +83,7 @@ def process_records(records):
                         SET actual_size = %s,
                             actual_color = %s,
                             size_result = CASE WHEN predicted_size = %s THEN 'WIN' ELSE 'LOSS' END,
-                            color_result = CASE WHEN predicted_color = %s THEN 'WIN' ELSE 'LOSS' END,
+                            color_result = CASE WHEN POSITION(predicted_color IN %s) > 0 THEN 'WIN' ELSE 'LOSS' END,
                             is_processed = TRUE
                         WHERE period_id = %s AND is_processed = FALSE;
                     """, (size, color, size, color, period_id))
