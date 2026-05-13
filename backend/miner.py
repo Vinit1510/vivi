@@ -9,7 +9,7 @@ from db import db_mgr, execute_one
 
 # Constants
 WINGO_URL = "https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json"
-INTERVAL = 5  # Poll every 5 seconds
+INTERVAL = 1.5  # Poll every 1.5 seconds for ultra-low latency
 
 def get_color(number):
     num = int(number)

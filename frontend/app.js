@@ -296,5 +296,5 @@ function getColorClass(color) {
 fetchStats();
 fetchDates();
 
-// Continuous background polling for stats every 10 seconds (Handles silent table refreshes internally)
-setInterval(fetchStats, 10000);
+// Continuous background polling for stats every 2 seconds (Handles instant silent table refreshes)
+setInterval(fetchStats, 2000);
