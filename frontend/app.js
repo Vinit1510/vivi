@@ -195,7 +195,8 @@ async function loadTimeline(dateStr, isSilent = false) {
             const cPct = hasPreds ? Math.round((item.color_wins / item.total_preds) * 100) : 0;
             
             const winRateHtml = hasPreds 
-                ? `<span class="hour-win-rate">🎯 WIN RATE: <strong style="color:var(--accent-cyan); margin-left: 5px;">SZ ${sPct}%</strong> | <strong style="color:var(--accent-pink)">CL ${cPct}%</strong></span>`
+                ? `<span class="hour-win-rate" style="border-color:rgba(0, 242, 255, 0.2); color:rgba(255,255,255,0.9);">🎯 SIZE: <strong style="color:var(--accent-cyan); margin-left:4px;">${sPct}% WIN</strong></span>
+                   <span class="hour-win-rate" style="border-color:rgba(255, 0, 127, 0.2); color:rgba(255,255,255,0.9);">🎨 COLOR: <strong style="color:var(--accent-pink); margin-left:4px;">${cPct}% WIN</strong></span>`
                 : '';
 
             card.innerHTML = `
