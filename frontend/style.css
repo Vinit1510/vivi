@@ -471,44 +471,54 @@ td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 
 }
 
 /* ==========================================================================
-   THREE-COLUMN COMMAND CENTER GRID
+   TWO-COLUMN SPACIOUS DASHBOARD SPLIT
    ========================================================================== */
-.timeline-three-col-grid {
+.timeline-dashboard-split {
     display: grid;
-    grid-template-columns: 265px 1fr 265px;
-    gap: 25px;
+    grid-template-columns: 350px 1fr;
+    gap: 30px;
     align-items: start;
     margin-top: 10px;
 }
 
-/* Sticky Command Sidebars */
-.sidebar-widget {
-    padding: 20px;
-    border-radius: 20px;
-    position: sticky;
-    top: 100px;
-    max-height: calc(100vh - 150px);
-    overflow-y: auto;
+/* High-Fidelity Stacked Sticky Column */
+.sidebar-column-left {
     display: flex;
     flex-direction: column;
-    gap: 15px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+    gap: 20px;
+    position: sticky;
+    top: 100px;
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
+    padding-right: 6px;
 }
 
-/* Clean Micro Scrollbars */
-.sidebar-widget::-webkit-scrollbar { width: 4px; }
-.sidebar-widget::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 10px; }
+/* Custom Fluid Scrollbar for Sticky Drawer */
+.sidebar-column-left::-webkit-scrollbar { width: 5px; }
+.sidebar-column-left::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 10px; }
+
+/* Dynamic Analysis Widgets */
+.sidebar-widget {
+    padding: 22px;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(10px);
+}
 
 /* Side Headers */
 .sidebar-header {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     border-bottom: 1px solid rgba(255,255,255,0.08);
     padding-bottom: 12px;
 }
 .sidebar-header h3 {
-    font-size: 11px;
+    font-size: 12.5px;
     font-weight: 800;
     letter-spacing: 2px;
     color: var(--text-secondary);
@@ -529,7 +539,7 @@ td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    flex: 1;
+    min-height: 100px;
 }
 
 /* Dynamic Context Wrappers */
@@ -542,32 +552,32 @@ td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 
 
 .sidebar-meta-header {
     font-family: 'Space Grotesk', sans-serif;
-    font-size: 12px;
+    font-size: 12.5px;
     color: var(--accent-cyan);
     font-weight: 800;
     text-align: center;
-    padding: 4px;
-    background: rgba(0, 242, 255, 0.05);
-    border: 1px solid rgba(0, 242, 255, 0.1);
-    border-radius: 8px;
-    margin-bottom: 5px;
+    padding: 6px;
+    background: rgba(0, 242, 255, 0.06);
+    border: 1px solid rgba(0, 242, 255, 0.12);
+    border-radius: 10px;
+    margin-bottom: 6px;
 }
 
-/* Analytics Item Layout */
+/* Analytics Item Layout (Enhanced Font Accessibility) */
 .micro-row {
     background: rgba(255,255,255,0.02);
     border: 1px solid rgba(255,255,255,0.04);
-    padding: 12px;
+    padding: 14px;
     border-radius: 12px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 .micro-row:hover {
     background: rgba(255,255,255,0.05);
     border-color: rgba(255,255,255,0.1);
-    transform: scale(1.02);
+    transform: translateY(-2px);
 }
 
 .micro-row-header {
@@ -575,49 +585,50 @@ td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 
     justify-content: space-between;
     align-items: center;
     font-family: 'Space Grotesk', sans-serif;
-    font-size: 12px;
+    font-size: 13.5px;
     font-weight: 700;
     color: white;
 }
 .micro-count-tag {
-    font-size: 9px;
-    color: rgba(255,255,255,0.5);
-    font-weight: 600;
-    background: rgba(0,0,0,0.35);
-    padding: 2px 6px;
-    border-radius: 10px;
-    border: 1px solid rgba(255,255,255,0.05);
+    font-size: 9.5px;
+    color: rgba(255,255,255,0.6);
+    font-weight: 700;
+    background: rgba(0,0,0,0.4);
+    padding: 3px 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
 }
 
 /* Bar Structures */
 .micro-bars {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
 }
 .micro-bar-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 10px;
-    gap: 8px;
+    font-size: 11px;
+    gap: 10px;
 }
 .micro-bar-label {
     font-weight: 700;
     color: var(--text-secondary);
-    width: 38px;
+    width: 45px;
+    letter-spacing: 0.5px;
 }
 .micro-bar-track {
     flex: 1;
-    height: 5px;
+    height: 6px;
     background: rgba(0,0,0,0.3);
-    border-radius: 5px;
+    border-radius: 6px;
     overflow: hidden;
     border: 1px solid rgba(255,255,255,0.03);
 }
 .micro-bar-fill {
     height: 100%;
-    border-radius: 5px;
+    border-radius: 6px;
     transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .bg-cyan { background: linear-gradient(90deg, var(--accent-cyan), #0088ff); box-shadow: 0 0 5px rgba(0, 242, 255, 0.2); }
@@ -627,7 +638,8 @@ td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 
     font-family: 'Space Grotesk', sans-serif;
     font-weight: 800;
     text-align: right;
-    width: 32px;
+    width: 36px;
+    font-size: 12px;
 }
 .text-cyan { color: var(--accent-cyan); }
 .text-pink { color: var(--accent-pink); }
@@ -639,26 +651,29 @@ td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 
     background: rgba(255,255,255,0.07) !important;
 }
 
-/* Responsive 3-Column Collapsing */
-@media (max-width: 1200px) {
-    .timeline-three-col-grid {
-        grid-template-columns: 1fr 1fr;
+/* ==========================================================================
+   RESPONSIVE TWO-COLUMN CONVERSIONS
+   ========================================================================== */
+@media (max-width: 1100px) {
+    .timeline-dashboard-split {
+        grid-template-columns: 1fr;
+        gap: 25px;
     }
-    .timeline-three-col-grid #history-accordion {
-        grid-column: span 2;
-        order: 3;
-    }
-    .sidebar-widget {
+    .sidebar-column-left {
         position: relative;
         top: 0;
         max-height: none;
+        flex-direction: row;
+        flex-wrap: wrap;
+        overflow: visible;
+    }
+    .sidebar-widget {
+        flex: 1;
+        min-width: 280px;
     }
 }
-@media (max-width: 700px) {
-    .timeline-three-col-grid {
-        grid-template-columns: 1fr;
-    }
-    .timeline-three-col-grid #history-accordion {
-        grid-column: span 1;
+@media (max-width: 650px) {
+    .sidebar-column-left {
+        flex-direction: column;
     }
 }

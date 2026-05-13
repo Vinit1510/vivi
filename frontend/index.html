@@ -123,50 +123,55 @@
                 </div>
             </div>
 
-            <!-- Premium Three-Column Dashboard Setup -->
-            <div class="timeline-three-col-grid">
+            <!-- Premium Two-Column Adaptive Dashboard Split -->
+            <div class="timeline-dashboard-split">
                 
-                <!-- COLUMN 1 (LEFT): 10-Min Stats Analyzer -->
-                <aside class="glass sidebar-widget" id="sidebar-10min">
-                    <div class="sidebar-header">
-                        <span class="material-symbols-rounded icon-cyan">timer</span>
-                        <h3>10-MIN MICRO WIN RATES</h3>
-                    </div>
+                <!-- LEFT SIDEBAR COLUMN: Stacked & Expanded -->
+                <div class="sidebar-column-left">
                     
-                    <div class="sidebar-empty" id="empty-10min">
-                        <span class="material-symbols-rounded icon-muted">monitoring</span>
-                        <p>Click an hour on the right timeline to unlock micro-trends.</p>
-                    </div>
-                    
-                    <div class="sidebar-content" id="content-10min" style="display:none;">
-                        <!-- Rendered dynamically via Javascript -->
-                    </div>
-                </aside>
+                    <!-- WIDGET 1: 10-Min Stats Analyzer -->
+                    <aside class="glass sidebar-widget" id="sidebar-10min">
+                        <div class="sidebar-header">
+                            <span class="material-symbols-rounded icon-cyan">timer</span>
+                            <h3>10-MIN MICRO WIN RATES</h3>
+                        </div>
+                        
+                        <div class="sidebar-empty" id="empty-10min">
+                            <span class="material-symbols-rounded icon-muted">monitoring</span>
+                            <p>Click an hour on the timeline to unlock micro-trends.</p>
+                        </div>
+                        
+                        <div class="sidebar-content" id="content-10min" style="display:none;">
+                            <!-- Rendered dynamically -->
+                        </div>
+                    </aside>
 
-                <!-- COLUMN 2 (CENTER): Core Timeline Accordion -->
+                    <!-- WIDGET 2: Confidence Accuracy Calibration -->
+                    <aside class="glass sidebar-widget" id="sidebar-conf">
+                        <div class="sidebar-header">
+                            <span class="material-symbols-rounded icon-pink">analytics</span>
+                            <h3>CALIBRATION ACCURACY</h3>
+                        </div>
+                        
+                        <div class="sidebar-empty" id="empty-conf">
+                            <span class="material-symbols-rounded icon-muted">query_stats</span>
+                            <p>Analyze precision mapped across engine confidence levels.</p>
+                        </div>
+                        
+                        <div class="sidebar-content" id="content-conf" style="display:none;">
+                            <!-- Rendered dynamically -->
+                        </div>
+                    </aside>
+
+                </div>
+
+                <!-- RIGHT CORE CONTENT: Main Timeline Accordion (Super Spacious!) -->
                 <div class="accordion-container" id="history-accordion">
                     <div class="empty-state">
                         <span class="material-symbols-rounded icon-xl">event_busy</span>
                         <p>Select a valid date above to view round breakdowns.</p>
                     </div>
                 </div>
-
-                <!-- COLUMN 3 (RIGHT): Confidence Accuracy Calibration -->
-                <aside class="glass sidebar-widget" id="sidebar-conf">
-                    <div class="sidebar-header">
-                        <span class="material-symbols-rounded icon-pink">analytics</span>
-                        <h3>CALIBRATION ACCURACY</h3>
-                    </div>
-                    
-                    <div class="sidebar-empty" id="empty-conf">
-                        <span class="material-symbols-rounded icon-muted">query_stats</span>
-                        <p>Analyze mathematical precision mapped across engine confidence levels.</p>
-                    </div>
-                    
-                    <div class="sidebar-content" id="content-conf" style="display:none;">
-                        <!-- Rendered dynamically via Javascript -->
-                    </div>
-                </aside>
 
             </div>
         </section>
