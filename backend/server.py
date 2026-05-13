@@ -174,7 +174,8 @@ def get_date_details(target_date: str):
                     r.period_id, r.number, r.size, r.color, 
                     r.created_at AT TIME ZONE 'Asia/Kolkata' as local_time,
                     p.predicted_size, p.predicted_color,
-                    p.size_result, p.color_result
+                    p.size_result, p.color_result,
+                    p.size_confidence, p.color_confidence
                 FROM rounds r
                 LEFT JOIN predictions p ON r.period_id = p.period_id
             )
@@ -194,7 +195,9 @@ def get_date_details(target_date: str):
                         'p_size', predicted_size,
                         'p_color', predicted_color,
                         'r_size', size_result,
-                        'r_color', color_result
+                        'r_color', color_result,
+                        'p_size_conf', size_confidence,
+                        'p_color_conf', color_confidence
                     ) ORDER BY period_id DESC
                 ) as rounds
             FROM ist_rounds

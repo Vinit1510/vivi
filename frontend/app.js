@@ -16,6 +16,13 @@ const accordionContainer = document.getElementById('history-accordion');
 let isPredictionActive = false;
 let currentTotalIngested = 0;
 let activeDateString = null;
+let activeSelectedHour = null; // Remembers which hour's sidebar is currently active!
+
+// 📊 Analytical Sidebar DOM References
+const sidebar10Empty = document.getElementById('empty-10min');
+const sidebar10Content = document.getElementById('content-10min');
+const sidebarConfEmpty = document.getElementById('empty-conf');
+const sidebarConfContent = document.getElementById('content-conf');
 
 // 🕒 Clock Update
 setInterval(() => {
@@ -186,6 +193,13 @@ async function loadTimeline(dateStr, isSilent = false) {
                 card.classList.add('expanded');
             }
             
+            // RE-HIGHLIGHT: Keep active highlight if this hour has active sidebars
+            if (activeSelectedHour === hourString) {
+                card.classList.add('active-selection');
+                // Render sidebars immediately with fresh live data
+                setTimeout(() => renderSidebars(item.rounds, displayTime), 0);
+            }
+            
             const hourInt = parseInt(item.hour);
             const displayTime = formatHour(hourInt);
 
@@ -257,7 +271,22 @@ async function loadTimeline(dateStr, isSilent = false) {
 
             // Toggle Functionality
             card.querySelector('.hour-header').addEventListener('click', () => {
-                card.classList.toggle('expanded');
+                const wasExpanded = card.classList.contains('expanded');
+                
+                // Collapse all other highlights
+                document.querySelectorAll('.hour-card').forEach(c => {
+                    c.classList.remove('expanded');
+                    c.classList.remove('active-selection');
+                });
+
+                if (!wasExpanded) {
+                    card.classList.add('expanded');
+                    card.classList.add('active-selection');
+                    activeSelectedHour = hourString;
+                    renderSidebars(item.rounds, displayTime);
+                } else {
+                    clearSidebars();
+                }
             });
 
             tempContainer.appendChild(card);
@@ -272,6 +301,151 @@ async function loadTimeline(dateStr, isSilent = false) {
             accordionContainer.innerHTML = '<div class="empty-state"><p style="color:#ff007f">Failed to stream history cache.</p></div>';
         }
     }
+}
+
+// ==========================================================================
+// ANALYTICAL SIDEBAR RENDERING ENGINE
+// ==========================================================================
+
+function renderSidebars(rounds, label) {
+    render10MinAnalysis(rounds, label);
+    renderConfidenceAnalysis(rounds, label);
+}
+
+function clearSidebars() {
+    sidebar10Content.style.display = 'none';
+    sidebar10Empty.style.display = 'flex';
+    sidebarConfContent.style.display = 'none';
+    sidebarConfEmpty.style.display = 'flex';
+    activeSelectedHour = null;
+    
+    // Ensure styling highlights are purged
+    document.querySelectorAll('.hour-card').forEach(c => {
+        c.classList.remove('active-selection');
+    });
+}
+
+// 🕒 LEFT SIDEBAR: 10-Min Minute-wise Range Aggregator
+function render10MinAnalysis(rounds, hourLabel) {
+    const buckets = [
+        { range: '00 - 10 MIN', start: 0, end: 10, total: 0, sWins: 0, cWins: 0 },
+        { range: '11 - 20 MIN', start: 11, end: 20, total: 0, sWins: 0, cWins: 0 },
+        { range: '21 - 30 MIN', start: 21, end: 30, total: 0, sWins: 0, cWins: 0 },
+        { range: '31 - 40 MIN', start: 31, end: 40, total: 0, sWins: 0, cWins: 0 },
+        { range: '41 - 50 MIN', start: 41, end: 50, total: 0, sWins: 0, cWins: 0 },
+        { range: '51 - 60 MIN', start: 51, end: 60, total: 0, sWins: 0, cWins: 0 },
+    ];
+
+    rounds.forEach(r => {
+        const parts = r.time.split(':');
+        if (parts.length < 2) return;
+        const minute = parseInt(parts[1]);
+        
+        const b = buckets.find(x => minute >= x.start && minute <= x.end);
+        if (b && (r.p_size || r.p_color)) {
+            b.total++;
+            if (r.r_size === 'WIN') b.sWins++;
+            if (r.r_color === 'WIN') b.cWins++;
+        }
+    });
+
+    let html = `<div class="sidebar-meta-header">${hourLabel}</div>`;
+    
+    buckets.forEach(b => {
+        const sPct = b.total > 0 ? Math.round((b.sWins / b.total) * 100) : 0;
+        const cPct = b.total > 0 ? Math.round((b.cWins / b.total) * 100) : 0;
+        
+        html += `
+            <div class="micro-row">
+                <div class="micro-row-header">
+                    <span>${b.range}</span>
+                    <span class="micro-count-tag">${b.total} PRED</span>
+                </div>
+                <div class="micro-bars">
+                    <div class="micro-bar-item">
+                        <span class="micro-bar-label">SIZE</span>
+                        <div class="micro-bar-track"><div class="micro-bar-fill bg-cyan" style="width:${sPct}%;"></div></div>
+                        <span class="micro-val text-cyan">${sPct}%</span>
+                    </div>
+                    <div class="micro-bar-item">
+                        <span class="micro-bar-label">COLOR</span>
+                        <div class="micro-bar-track"><div class="micro-bar-fill bg-pink" style="width:${cPct}%;"></div></div>
+                        <span class="micro-val text-pink">${cPct}%</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    sidebar10Content.innerHTML = html;
+    sidebar10Empty.style.display = 'none';
+    sidebar10Content.style.display = 'flex';
+}
+
+// 📊 RIGHT SIDEBAR: 5% Confidence Accuracy Calibration Engine
+function renderConfidenceAnalysis(rounds, hourLabel) {
+    const buckets = [
+        { label: '96 - 100% CONF', start: 96, end: 100, total: 0, wins: 0 },
+        { label: '91 - 95% CONF', start: 91, end: 95, total: 0, wins: 0 },
+        { label: '86 - 90% CONF', start: 86, end: 90, total: 0, wins: 0 },
+        { label: '81 - 85% CONF', start: 81, end: 85, total: 0, wins: 0 },
+        { label: '76 - 80% CONF', start: 76, end: 80, total: 0, wins: 0 },
+        { label: '71 - 75% CONF', start: 71, end: 75, total: 0, wins: 0 },
+        { label: '66 - 70% CONF', start: 66, end: 70, total: 0, wins: 0 },
+        { label: '61 - 65% CONF', start: 61, end: 65, total: 0, wins: 0 },
+        { label: '56 - 60% CONF', start: 56, end: 60, total: 0, wins: 0 },
+        { label: '50 - 55% CONF', start: 50, end: 55, total: 0, wins: 0 },
+    ];
+
+    rounds.forEach(r => {
+        // Track Size calibration sample
+        if (r.p_size_conf) {
+            const confVal = Math.round(parseFloat(r.p_size_conf));
+            const b = buckets.find(x => confVal >= x.start && confVal <= x.end);
+            if (b) {
+                b.total++;
+                if (r.r_size === 'WIN') b.wins++;
+            }
+        }
+        // Track Color calibration sample
+        if (r.p_color_conf) {
+            const confVal = Math.round(parseFloat(r.p_color_conf));
+            const b = buckets.find(x => confVal >= x.start && confVal <= x.end);
+            if (b) {
+                b.total++;
+                if (r.r_color === 'WIN') b.wins++;
+            }
+        }
+    });
+
+    let html = `<div class="sidebar-meta-header">${hourLabel}</div>`;
+    
+    buckets.forEach(b => {
+        const winPct = b.total > 0 ? Math.round((b.wins / b.total) * 100) : 0;
+        // Standard cyan if calibrated > 70%, otherwise secondary text
+        const fillClass = winPct >= 70 ? 'bg-cyan' : 'bg-pink';
+        const textClass = winPct >= 70 ? 'text-cyan' : 'text-pink';
+        
+        html += `
+            <div class="micro-row">
+                <div class="micro-row-header">
+                    <span>${b.label}</span>
+                    <span class="micro-count-tag">${b.total} VOL</span>
+                </div>
+                <div class="micro-bars">
+                    <div class="micro-bar-item">
+                        <span class="micro-bar-label">ACC</span>
+                        <div class="micro-bar-track"><div class="micro-bar-fill ${fillClass}" style="width:${winPct}%;"></div></div>
+                        <span class="micro-val ${textClass}">${winPct}%</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    sidebarConfContent.innerHTML = html;
+    sidebarConfEmpty.style.display = 'none';
+    sidebarConfContent.style.display = 'flex';
 }
 
 // Helpers
