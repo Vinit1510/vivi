@@ -14,18 +14,23 @@ const dateContainer = document.getElementById('date-chips');
 const accordionContainer = document.getElementById('history-accordion');
 
 let isPredictionActive = false;
+let currentTotalIngested = 0;
+let activeDateString = null;
 
 // 🕒 Clock Update
 setInterval(() => {
     clockEl.textContent = new Date().toLocaleTimeString();
 }, 1000);
 
-// Dom Refs for Prediction Box
+// Dom Refs for Prediction Box (Separated Gauges)
 const predPeriodEl = document.getElementById('pred-period-id');
 const fSizeEl = document.getElementById('forecast-size');
 const fColorEl = document.getElementById('forecast-color');
-const confBarEl = document.getElementById('conf-bar');
-const confTextEl = document.getElementById('conf-pct');
+
+const confBarSizeEl = document.getElementById('conf-bar-size');
+const confTextSizeEl = document.getElementById('conf-pct-size');
+const confBarColorEl = document.getElementById('conf-bar-color');
+const confTextColorEl = document.getElementById('conf-pct-color');
 
 // 📈 Fetch Stats
 async function fetchStats() {
@@ -33,7 +38,11 @@ async function fetchStats() {
         const res = await fetch(`${API_BASE}/api/dashboard-stats`);
         const data = await res.json();
         
-        countRoundsEl.textContent = parseInt(data.total_ingested).toLocaleString();
+        const newTotal = parseInt(data.total_ingested);
+        const dataGrown = currentTotalIngested > 0 && newTotal !== currentTotalIngested;
+        currentTotalIngested = newTotal;
+        
+        countRoundsEl.textContent = currentTotalIngested.toLocaleString();
         
         // Update Live Prediction Elements
         predPeriodEl.textContent = `PERIOD: ...${data.next_period.toString().slice(-6)}`;
@@ -45,8 +54,12 @@ async function fetchStats() {
         fColorEl.textContent = fore.color.toUpperCase();
         fColorEl.className = `forecast-bubble ${fore.color.toLowerCase()}`;
         
-        confBarEl.style.width = `${fore.confidence}%`;
-        confTextEl.textContent = `${fore.confidence}% MATCH`;
+        // Set granular meters
+        confBarSizeEl.style.width = `${fore.size_confidence}%`;
+        confTextSizeEl.textContent = `${fore.size_confidence}% MATCH`;
+        
+        confBarColorEl.style.width = `${fore.color_confidence}%`;
+        confTextColorEl.textContent = `${fore.color_confidence}% MATCH`;
 
         // Process overall accuracy
         const stats = data.stats;
@@ -57,14 +70,18 @@ async function fetchStats() {
         
         accSizeEl.textContent = `${sizePct}%`;
         fillSizeEl.style.width = `${sizePct}%`;
-        fillSizeEl.style.color = sizePct > 70 ? '#00ff88' : '#ff007f'; // dynamically adjust color 
-
+        
         accColorEl.textContent = `${colorPct}%`;
         fillColorEl.style.width = `${colorPct}%`;
-        fillColorEl.style.color = colorPct > 70 ? '#00ff88' : '#ff007f';
 
         // Set toggle state
         updateToggleButton(data.prediction_enabled);
+
+        // SILENT AUTO-REFRESH TRIGGER: If round count increments, push seamless update to UI!
+        if (dataGrown && activeDateString) {
+            console.log("🔄 New data ingestion detected. Performing seamless timeline hot-swap...");
+            loadTimeline(activeDateString, true);
+        }
     } catch (err) {
         console.error("Stat fetch failure:", err);
     }
@@ -118,29 +135,40 @@ async function fetchDates() {
             chip.addEventListener('click', () => {
                 document.querySelectorAll('.date-chip').forEach(c => c.classList.remove('active'));
                 chip.classList.add('active');
-                loadTimeline(dateStr);
+                activeDateString = dateStr;
+                loadTimeline(dateStr, false); // Explicit click gets animation
             });
             
             dateContainer.appendChild(chip);
         });
 
         // Load latest date by default
-        if (dates[0]) loadTimeline(dates[0]);
+        if (dates[0]) {
+            activeDateString = dates[0];
+            loadTimeline(dates[0], false);
+        }
 
     } catch (err) {
         dateContainer.innerHTML = '<p style="color:#ff007f">Offline</p>';
     }
 }
 
-// 📊 Load Hourly Timeline
-async function loadTimeline(dateStr) {
-    accordionContainer.innerHTML = '<div class="empty-state"><div class="loading-spinner"></div><p>Decompressing hourly data...</p></div>';
+// 📊 Load Hourly Timeline (with Intelligent State preservation for silent swaps)
+async function loadTimeline(dateStr, isSilent = false) {
+    // If silent, we do NOT clear DOM or show loading animations to avoid UI flashes!
+    if (!isSilent) {
+        accordionContainer.innerHTML = '<div class="empty-state"><div class="loading-spinner"></div><p>Decompressing hourly data...</p></div>';
+    }
     
     try {
+        // 1. RECORD USER CONTEXT: Remember which cards were expanded so they stay open!
+        const expandedHours = Array.from(document.querySelectorAll('.hour-card.expanded'))
+            .map(card => card.getAttribute('data-hour'));
+
         const res = await fetch(`${API_BASE}/api/history/date/${dateStr}`);
-        const groupedData = await res.json(); // Array of {hour, count, rounds:[]}
+        const groupedData = await res.json(); 
         
-        accordionContainer.innerHTML = '';
+        const tempContainer = document.createDocumentFragment();
         
         if (!groupedData || groupedData.length === 0) {
             accordionContainer.innerHTML = '<div class="empty-state"><p>No records for this date.</p></div>';
@@ -149,9 +177,15 @@ async function loadTimeline(dateStr) {
 
         groupedData.forEach(item => {
             const card = document.createElement('div');
+            const hourString = item.hour.toString();
             card.className = 'hour-card';
+            card.setAttribute('data-hour', hourString);
             
-            // Format hour nicely (00 to 24) -> 12 AM format
+            // 2. RESTORE USER CONTEXT: Reapply expanded token if user had it open
+            if (expandedHours.includes(hourString)) {
+                card.classList.add('expanded');
+            }
+            
             const hourInt = parseInt(item.hour);
             const displayTime = formatHour(hourInt);
 
@@ -215,11 +249,17 @@ async function loadTimeline(dateStr) {
                 card.classList.toggle('expanded');
             });
 
-            accordionContainer.appendChild(card);
+            tempContainer.appendChild(card);
         });
 
+        // Perform final unified DOM swap to prevent paint flickering
+        accordionContainer.innerHTML = '';
+        accordionContainer.appendChild(tempContainer);
+
     } catch (err) {
-        accordionContainer.innerHTML = '<div class="empty-state"><p style="color:#ff007f">Failed to stream history cache.</p></div>';
+        if (!isSilent) {
+            accordionContainer.innerHTML = '<div class="empty-state"><p style="color:#ff007f">Failed to stream history cache.</p></div>';
+        }
     }
 }
 
@@ -245,5 +285,5 @@ function getColorClass(color) {
 fetchStats();
 fetchDates();
 
-// Continuous background polling for stats every 10 seconds
+// Continuous background polling for stats every 10 seconds (Handles silent table refreshes internally)
 setInterval(fetchStats, 10000);

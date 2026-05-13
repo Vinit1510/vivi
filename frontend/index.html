@@ -66,8 +66,10 @@
             </div>
         </section>
 
-        <!-- LIVE PREDICTION BOX -->
-        <section class="live-prediction-container">
+        <!-- DASHBOARD HERO GRID (60:40 Side-by-Side Layout) -->
+        <section class="dashboard-hero-grid">
+            
+            <!-- LEFT COMPONENT: LIVE PREDICTIONS (60%) -->
             <div class="prediction-box glass neon-border">
                 <div class="pred-header">
                     <div class="live-tag"><span class="dot online pulse"></span> NEXT ROUND ANALYSIS</div>
@@ -83,17 +85,23 @@
                         </div>
                     </div>
                     
-                    <div class="pred-confidence">
-                        <div class="conf-label">ENGINE CONFIDENCE</div>
-                        <div class="conf-bar"><div class="conf-fill" id="conf-bar" style="width: 0%;"></div></div>
-                        <div class="conf-text" id="conf-pct">Initializing...</div>
+                    <!-- GRANULAR SPLIT CONFIDENCE CONTROLS -->
+                    <div class="dual-confidences">
+                        <div class="pred-confidence">
+                            <div class="conf-label">SIZE CONFIDENCE</div>
+                            <div class="conf-bar"><div class="conf-fill" id="conf-bar-size" style="width: 0%;"></div></div>
+                            <div class="conf-text" id="conf-pct-size">0% MATCH</div>
+                        </div>
+                        <div class="pred-confidence">
+                            <div class="conf-label">COLOR CONFIDENCE</div>
+                            <div class="conf-bar"><div class="conf-fill" id="conf-bar-color" style="width: 0%;"></div></div>
+                            <div class="conf-text" id="conf-pct-color">0% MATCH</div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </section>
 
-        <!-- Main Action Center -->
-        <section class="action-row">
+            <!-- RIGHT COMPONENT: CONTROL TOGGLE (40%) -->
             <div class="glass control-panel">
                 <h2>Prediction Autonomy</h2>
                 <p class="helper-text">System constantly trains. Activate below to compute real-time next steps.</p>

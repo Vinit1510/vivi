@@ -169,15 +169,16 @@ body::before {
 .mini-progress { width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 8px; overflow: hidden;}
 .fill { height: 100%; background: currentColor; transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 2px;}
 
-/* Live Prediction Core Module */
-.live-prediction-container {
-    display: flex;
-    justify-content: center;
-    margin: 10px 0;
+/* Dashboard Hero Container (60:40 Master Grid) */
+.dashboard-hero-grid {
+    display: grid;
+    grid-template-columns: 60fr 40fr;
+    gap: 25px;
+    align-items: stretch;
 }
+
 .prediction-box {
     width: 100%;
-    max-width: 800px;
     padding: 30px;
     border-radius: 24px;
     position: relative;
@@ -222,7 +223,7 @@ body::before {
 .pred-body {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 40px;
+    gap: 30px;
     align-items: center;
 }
 
@@ -248,26 +249,37 @@ body::before {
 .forecast-bubble.red { color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
 .forecast-bubble.green { color: #10b981; border-color: rgba(16, 185, 129, 0.3); }
 
-.pred-confidence { display: flex; flex-direction: column; gap: 8px; }
-.conf-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); letter-spacing: 1px;}
-.conf-bar { width: 100%; height: 8px; background: rgba(0,0,0,0.3); border-radius: 10px; overflow: hidden; }
+/* Split confidence block inside prediction container */
+.dual-confidences {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+.pred-confidence { display: flex; flex-direction: column; gap: 6px; }
+.conf-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); letter-spacing: 1px;}
+.conf-bar { width: 100%; height: 6px; background: rgba(0,0,0,0.3); border-radius: 10px; overflow: hidden; }
 .conf-fill { height: 100%; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green)); transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
-.conf-text { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px; text-align: right; color: var(--accent-green); }
+.conf-text { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 12px; text-align: right; color: var(--accent-green); }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
+    .dashboard-hero-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
     .pred-body { grid-template-columns: 1fr; gap: 25px; }
 }
 
-/* Main Actions - BIG BUTTON */
+/* Right Side Action Box Styling */
 .control-panel {
-    padding: 40px;
+    padding: 30px;
     text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 15px;
     position: relative;
     overflow: hidden;
+    height: 100%;
 }
 .helper-text { color: var(--text-secondary); max-width: 500px; font-size: 15px; }
 

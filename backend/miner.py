@@ -97,6 +97,38 @@ def process_records(records):
             
     return saved_count
 
+def verify_active_prediction():
+    """Ensures that if predictions are enabled, the system always holds a forecast for the upcoming period."""
+    try:
+        active_res = execute_one("SELECT value FROM system_config WHERE key = 'prediction_active'")
+        if not active_res or active_res[0] != 'true':
+            return
+            
+        recent = execute_one("SELECT period_id FROM rounds ORDER BY period_id DESC LIMIT 1")
+        if not recent:
+            return
+        latest_id = int(recent[0])
+        next_id = latest_id + 1
+        
+        # Check if database already houses a prediction for this forthcoming block
+        exists = execute_one("SELECT 1 FROM predictions WHERE period_id = %s", (next_id,))
+        if exists:
+            return
+            
+        import brain
+        forecast = brain.generate_forecast()
+        if forecast.get("size") == "WAIT":
+            return
+            
+        execute_one("""
+            INSERT INTO predictions (period_id, predicted_size, predicted_color, size_confidence, color_confidence, created_at)
+            VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (period_id) DO NOTHING;
+        """, (next_id, forecast.get("size"), forecast.get("color"), forecast.get("size_confidence"), forecast.get("color_confidence")))
+        print(f"🔮 Daemon Prediction successfully registered for forthcoming Period {next_id}.")
+    except Exception as e:
+        print(f"⚠️ Autonomous prediction failure: {e}")
+
 def start_miner_loop():
     print("🚀 Initializing Vivi 24/7 Miner...")
     db_mgr.connect()
@@ -110,6 +142,9 @@ def start_miner_loop():
             
             if inserted > 0:
                 print(f"📦 Data Ingested: Added {inserted} new rounds from source.")
+            
+            # Ignite automatic prediction engine verification
+            verify_active_prediction()
                 
             time.sleep(INTERVAL)
             

@@ -63,6 +63,15 @@ async def startup_event():
                 EXCEPTION WHEN OTHERS THEN 
                     NULL; 
                 END $$;
+
+                -- 4. Dynamically migrate predictions schema for split confidence
+                DO $$
+                BEGIN
+                    ALTER TABLE predictions ADD COLUMN IF NOT EXISTS size_confidence FLOAT;
+                    ALTER TABLE predictions ADD COLUMN IF NOT EXISTS color_confidence FLOAT;
+                EXCEPTION WHEN OTHERS THEN
+                    NULL;
+                END $$;
             """
             execute_one(maintenance_sql)
             print("✅ Database structural integrity verified & healed.")
@@ -98,17 +107,27 @@ def get_dashboard_stats():
         active_res = execute_one("SELECT value FROM system_config WHERE key = 'prediction_active'")
         is_active = active_res[0] == 'true' if active_res else False
         
-        # Get current brain analysis
-        forecast = {"size": "WAIT", "color": "TRAINING", "confidence": 0}
-        if is_active:
-            forecast = brain.generate_forecast()
-            # Save live prediction to database immediately so miner can grade it later!
-            if forecast["size"] != "WAIT" and next_id != "PENDING":
-                 execute_one("""
-                     INSERT INTO predictions (period_id, predicted_size, predicted_color, created_at)
-                     VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
-                     ON CONFLICT (period_id) DO NOTHING;
-                 """, (next_id, forecast["size"], forecast["color"]))
+        # Get current brain analysis (Fetch pre-computed background forecast if exists)
+        forecast = {"size": "WAIT", "color": "TRAINING", "size_confidence": 0.0, "color_confidence": 0.0}
+        if is_active and next_id != "PENDING":
+            saved_pred = fetch_all("SELECT predicted_size, predicted_color, size_confidence, color_confidence FROM predictions WHERE period_id = %s", (next_id,))
+            if saved_pred:
+                forecast = {
+                    "size": saved_pred[0]["predicted_size"] or "WAIT",
+                    "color": saved_pred[0]["predicted_color"] or "WAIT",
+                    "size_confidence": saved_pred[0]["size_confidence"] or 0.0,
+                    "color_confidence": saved_pred[0]["color_confidence"] or 0.0
+                }
+            else:
+                # Fallback: Background miner hasn't cycled yet, compute dynamic forecast
+                forecast = brain.generate_forecast()
+                # Instantly persist fallback to ensure continuity
+                if forecast["size"] != "WAIT":
+                     execute_one("""
+                         INSERT INTO predictions (period_id, predicted_size, predicted_color, size_confidence, color_confidence, created_at)
+                         VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                         ON CONFLICT (period_id) DO NOTHING;
+                     """, (next_id, forecast["size"], forecast["color"], forecast["size_confidence"], forecast["color_confidence"]))
         
         # Calculate accuracy for size and color
         acc_res = fetch_all("""

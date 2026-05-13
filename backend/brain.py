@@ -11,7 +11,12 @@ def generate_forecast():
         all_data = fetch_all("SELECT size, color FROM rounds ORDER BY period_id DESC")
         
         if not all_data or len(all_data) < 5:
-            return {"size": "WAIT", "color": "TRAINING", "confidence": 45.0}
+            return {
+                "size": "WAIT", 
+                "color": "TRAINING", 
+                "size_confidence": 45.0,
+                "color_confidence": 45.0
+            }
             
         # 1. Absolute Safe Python Aggregation (No chance of SQL syntax variance)
         big_t = 0
@@ -54,16 +59,31 @@ def generate_forecast():
         if rg > rr: c_score += 2
         predicted_color = "Red" if c_score >= 2 else "Green"
         
-        # C. Confidence Logic with Zero-Safety
+        # C. Split Analytical Confidence Logic
         vol_boost = min(10, len(all_data) / 500.0)
-        base = 65.0 + random.uniform(0, 8.0) + vol_boost
+        
+        # Measure distribution dominance (0.5 = random, 1.0 = absolute trend)
+        s_ratio = max(r_big, r_small) / max(1, r_big + r_small)
+        c_ratio = max(rg, rr) / max(1, rg + rr)
+        
+        base_s = 55.0 + (s_ratio - 0.5) * 60.0
+        base_c = 55.0 + (c_ratio - 0.5) * 60.0
+        
+        final_size_conf = min(99.9, base_s + vol_boost + random.uniform(0, 4.0))
+        final_color_conf = min(99.9, base_c + vol_boost + random.uniform(0, 4.0))
         
         return {
             "size": predicted_size,
             "color": predicted_color,
-            "confidence": round(base, 1)
+            "size_confidence": round(final_size_conf, 1),
+            "color_confidence": round(final_color_conf, 1)
         }
         
     except Exception as e:
         print(f"Brain Error: {e}")
-        return {"size": "WAIT", "color": "WAIT", "confidence": 0.0}
+        return {
+            "size": "WAIT", 
+            "color": "WAIT", 
+            "size_confidence": 0.0, 
+            "color_confidence": 0.0
+        }
