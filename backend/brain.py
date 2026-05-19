@@ -15,7 +15,7 @@ class MLBrain:
         self.color_model = None
         self.is_trained = False
         self.features_list = []
-        self.lag_window = 8
+        self.lag_window = 20  # Updated: Consider the last 20 rounds!
         self.lock = threading.Lock()
         
     def train_from_excel(self):
@@ -96,14 +96,20 @@ class MLBrain:
                 y_size = df_clean['size_encoded']
                 y_color = df_clean['color_encoded']
                 
+                # Assign higher sample weights to the most recent 500 rounds to prioritize latest trends!
+                n_samples = len(df_clean)
+                weights = np.ones(n_samples)
+                if n_samples > 500:
+                    weights[-500:] = 5.0
+                
                 print("[MLBrain] Fitting High-Performance Random Forest Classifiers...")
                 
                 # Initialize classifiers optimized to prevent overfitting on highly random distributions
                 self.size_model = RandomForestClassifier(n_estimators=180, max_depth=6, min_samples_leaf=4, random_state=42, n_jobs=-1)
-                self.size_model.fit(X, y_size)
+                self.size_model.fit(X, y_size, sample_weight=weights)
                 
                 self.color_model = RandomForestClassifier(n_estimators=180, max_depth=6, min_samples_leaf=4, random_state=42, n_jobs=-1)
-                self.color_model.fit(X, y_color)
+                self.color_model.fit(X, y_color, sample_weight=weights)
                 
                 self.features_list = features
                 self.is_trained = True
@@ -125,7 +131,7 @@ class MLBrain:
                 df_recent = pd.DataFrame(recent_rounds)
                 df_recent = df_recent.sort_values("period_id", ascending=True).reset_index(drop=True)
                 
-                if len(df_recent) < 15:
+                if len(df_recent) < 25:
                     return None
                 
                 # Encode values
