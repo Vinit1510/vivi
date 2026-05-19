@@ -1,15 +1,16 @@
-from fastapi import FastAPI, Query, HTTPException
+import os
+import time
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from typing import Optional, List
-from datetime import datetime
 import uvicorn
 
-from db import db_mgr, fetch_all, execute_one
+import db
 import miner
+import brain
 
-app = FastAPI(title="Vivi Analytics Engine API")
+app = FastAPI(title="Vivi Analytics Engine API (Excel DB Mode)")
 
 app.add_middleware(
     CORSMiddleware,
@@ -19,83 +20,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Startup lifecycle with auto-table creation
+# Startup lifecycle
 @app.on_event("startup")
-async def startup_event():
-    print("--- 🚀 Starting VIVI Backend Node ---")
-    
-    # 1. Initialize DB Pool
-    db_mgr.connect()
-    
-    # 2. Auto-Execute Schema to prevent "Relation missing" errors
-    try:
-        schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
-        if os.path.exists(schema_path):
-            print("🛠️ Verifying database schema and patching constraints...")
-            with open(schema_path, 'r') as f:
-                sql = f.read()
-            execute_one(sql)
-            
-            # REPAIR / MAINTENANCE: Ensure uniqueness in case of faulty manual initial create
-            maintenance_sql = """
-                -- 1. Upgrade column type to force absolute timezone storage if not already
-                DO $$
-                BEGIN
-                    ALTER TABLE rounds ALTER COLUMN created_at TYPE TIMESTAMPTZ;
-                EXCEPTION WHEN OTHERS THEN
-                    NULL;
-                END $$;
-
-                -- 2. Delete physical duplicates keeping highest ID
-                DELETE FROM rounds a USING (
-                    SELECT MIN(id) as keep_id, period_id 
-                    FROM rounds 
-                    GROUP BY period_id HAVING COUNT(*) > 1
-                ) b
-                WHERE a.period_id = b.period_id AND a.id != b.keep_id;
-
-                -- 3. Force add UNIQUE constraint safely if it didn't bind correctly
-                DO $$
-                BEGIN
-                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_rounds_period') THEN
-                        ALTER TABLE rounds ADD CONSTRAINT uq_rounds_period UNIQUE (period_id);
-                    END IF;
-                EXCEPTION WHEN OTHERS THEN 
-                    NULL; 
-                END $$;
-
-                -- 4. Dynamically migrate predictions schema for split confidence
-                DO $$
-                BEGIN
-                    ALTER TABLE predictions ADD COLUMN IF NOT EXISTS size_confidence FLOAT;
-                    ALTER TABLE predictions ADD COLUMN IF NOT EXISTS color_confidence FLOAT;
-                EXCEPTION WHEN OTHERS THEN
-                    NULL;
-                END $$;
-            """
-            execute_one(maintenance_sql)
-            print("✅ Database structural integrity verified & healed.")
-    except Exception as schema_err:
-        print(f"⚠️ Warn during auto-schema: {schema_err}")
-
-    # 3. Ignite autonomous miner
+def startup_event():
+    print("--- 🚀 Starting VIVI Backend Node (Excel DB Mode) ---")
     miner.run_in_background()
     print("VIVI System Fully Online.")
 
-import os
-
-# Root path serves Index.html (Supports GET and HEAD for Monitoring bots)
+# Root path serves Index.html
 @app.get("/")
 @app.head("/")
 def get_dashboard():
     frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "index.html")
     return FileResponse(frontend_path)
 
-import brain
-import time
-
 # ==========================================================================
-# TRANSIENT THREAD-SAFE IN-MEMORY CACHE FOR NEON DB BANDWIDTH OPTIMIZATION
+# TRANSIENT THREAD-SAFE IN-MEMORY CACHE FOR EXCEL DB BANDWIDTH OPTIMIZATION
 # ==========================================================================
 class CacheStore:
     def __init__(self):
@@ -111,53 +51,43 @@ cache = CacheStore()
 def get_dashboard_stats():
     """Provides top-level overview stats and immediate next forecast with in-memory caching."""
     now = time.time()
-    # Cache stats for 4 seconds (effectively bypasses 2-second user request storms)
+    # Cache stats for 4 seconds (effectively bypasses frontend request storms)
     if cache.dashboard_stats and (now - cache.stats_time < 4.0):
         return cache.dashboard_stats
         
     try:
-        total_rounds_res = execute_one("SELECT COUNT(*) FROM rounds;")
-        total_rounds = total_rounds_res[0] if total_rounds_res else 0
-        
-        recent = fetch_all("SELECT period_id FROM rounds ORDER BY period_id DESC LIMIT 1")
-        latest_id = recent[0]["period_id"] if recent else 0
+        total_rounds = db.get_total_rounds_count()
+        latest_id = db.get_latest_round_id()
         next_id = latest_id + 1 if latest_id > 0 else "PENDING"
         
-        active_res = execute_one("SELECT value FROM system_config WHERE key = 'prediction_active'")
-        is_active = active_res[0] == 'true' if active_res else False
+        active_status = db.get_system_config('prediction_active', 'false')
+        is_active = (active_status == 'true')
         
         # Get current brain analysis (Fetch pre-computed background forecast if exists)
         forecast = {"size": "WAIT", "color": "TRAINING", "size_confidence": 0.0, "color_confidence": 0.0}
         if is_active and next_id != "PENDING":
-            saved_pred = fetch_all("SELECT predicted_size, predicted_color, size_confidence, color_confidence FROM predictions WHERE period_id = %s", (next_id,))
+            saved_pred = db.get_prediction(next_id)
             if saved_pred:
                 forecast = {
-                    "size": saved_pred[0]["predicted_size"] or "WAIT",
-                    "color": saved_pred[0]["predicted_color"] or "WAIT",
-                    "size_confidence": saved_pred[0]["size_confidence"] or 0.0,
-                    "color_confidence": saved_pred[0]["color_confidence"] or 0.0
+                    "size": saved_pred["predicted_size"] or "WAIT",
+                    "color": saved_pred["predicted_color"] or "WAIT",
+                    "size_confidence": saved_pred["size_confidence"] or 0.0,
+                    "color_confidence": saved_pred["color_confidence"] or 0.0
                 }
             else:
                 # Fallback: Background miner hasn't cycled yet, compute dynamic forecast
                 forecast = brain.generate_forecast()
                 # Instantly persist fallback to ensure continuity
                 if forecast["size"] != "WAIT":
-                     execute_one("""
-                         INSERT INTO predictions (period_id, predicted_size, predicted_color, size_confidence, color_confidence, created_at)
-                         VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
-                         ON CONFLICT (period_id) DO NOTHING;
-                     """, (next_id, forecast["size"], forecast["color"], forecast["size_confidence"], forecast["color_confidence"]))
+                     db.add_prediction(
+                         next_id, 
+                         forecast["size"], 
+                         forecast["color"], 
+                         forecast["size_confidence"], 
+                         forecast["color_confidence"]
+                     )
         
-        # Calculate accuracy for size and color
-        acc_res = fetch_all("""
-            SELECT 
-                COUNT(*) filter (WHERE size_result = 'WIN') as size_wins,
-                COUNT(*) filter (WHERE color_result = 'WIN') as color_wins,
-                COUNT(*) filter (WHERE is_processed = TRUE) as total_preds
-            FROM predictions
-        """)
-        
-        stats = acc_res[0] if (acc_res and acc_res[0]["total_preds"] is not None) else {"size_wins":0, "color_wins":0, "total_preds":0}
+        stats = db.get_accuracy_stats()
         
         res_data = {
             "total_ingested": total_rounds,
@@ -174,19 +104,13 @@ def get_dashboard_stats():
 
 @app.get("/api/available-dates")
 def get_available_dates():
-    """Returns sorted list of dates with data, casted to IST with 30-sec cache buffer."""
+    """Returns sorted list of dates with data with 30-sec cache buffer."""
     now = time.time()
     if cache.available_dates and (now - cache.dates_time < 30.0):
         return cache.available_dates
         
     try:
-        res = fetch_all("""
-            SELECT DISTINCT DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Kolkata')::date as valid_date 
-            FROM rounds 
-            ORDER BY valid_date DESC 
-            LIMIT 30;
-        """)
-        res_dates = [str(r["valid_date"]) for r in res]
+        res_dates = db.get_available_dates()
         cache.available_dates = res_dates
         cache.dates_time = now
         return res_dates
@@ -195,51 +119,14 @@ def get_available_dates():
 
 @app.get("/api/history/date/{target_date}")
 def get_date_details(target_date: str):
-    """Retrieves nested hierarchical JSON grouped by Indian Time hours including outcome tracking with 8-sec cache."""
+    """Retrieves nested hierarchical JSON grouped by IST hours with 8-sec cache."""
     now = time.time()
     cached_entry = cache.history_cache.get(target_date)
     if cached_entry and (now - cached_entry[0] < 8.0):
         return cached_entry[1]
         
     try:
-        query = """
-            WITH ist_rounds AS (
-                SELECT 
-                    r.period_id, r.number, r.size, r.color, 
-                    r.created_at AT TIME ZONE 'Asia/Kolkata' as local_time,
-                    p.predicted_size, p.predicted_color,
-                    p.size_result, p.color_result,
-                    p.size_confidence, p.color_confidence
-                FROM rounds r
-                LEFT JOIN predictions p ON r.period_id = p.period_id
-            )
-            SELECT 
-                EXTRACT(HOUR FROM local_time) as hour,
-                COUNT(*) as count,
-                COUNT(*) FILTER (WHERE size_result IS NOT NULL) as total_preds,
-                COUNT(*) FILTER (WHERE size_result = 'WIN') as size_wins,
-                COUNT(*) FILTER (WHERE color_result = 'WIN') as color_wins,
-                JSON_AGG(
-                    JSON_BUILD_OBJECT(
-                        'period_id', period_id::TEXT,
-                        'number', number,
-                        'size', size,
-                        'color', color,
-                        'time', local_time::time,
-                        'p_size', predicted_size,
-                        'p_color', predicted_color,
-                        'r_size', size_result,
-                        'r_color', color_result,
-                        'p_size_conf', size_confidence,
-                        'p_color_conf', color_confidence
-                    ) ORDER BY period_id DESC
-                ) as rounds
-            FROM ist_rounds
-            WHERE local_time::date = %s
-            GROUP BY EXTRACT(HOUR FROM local_time)
-            ORDER BY hour DESC;
-        """
-        results = fetch_all(query, (target_date,))
+        results = db.get_hourly_history(target_date)
         cache.history_cache[target_date] = (now, results)
         return results
     except Exception as e:
@@ -249,11 +136,7 @@ def get_date_details(target_date: str):
 def toggle_prediction(status: bool):
     try:
         val_str = 'true' if status else 'false'
-        execute_one("""
-            INSERT INTO system_config (key, value, updated_at)
-            VALUES ('prediction_active', %s, CURRENT_TIMESTAMP)
-            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP;
-        """, (val_str,))
+        db.set_system_config('prediction_active', val_str)
         
         # Force cache invalidation immediately on state change!
         cache.dashboard_stats = None
