@@ -197,7 +197,8 @@ def generate_forecast():
     """
     try:
         # Load the latest rounds from Excel DB
-        all_data = get_latest_rounds(30)
+        all_data = db.get_latest_rounds(30)
+
         
         if not all_data or len(all_data) < 15:
             return {
