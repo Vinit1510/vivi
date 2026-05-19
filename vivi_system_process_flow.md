@@ -4,7 +4,49 @@ Welcome to the definitive architectural blueprint of the upgraded, hyper-resilie
 
 ---
 
-## 🗺️ High-Level System Architecture
+## 🗺️ High-Level System Architecture (Step-by-Step Arrow Flow)
+
+Here is the exact step-by-step process flow of VIVI, mapped with sequential arrows for maximum clarity:
+
+```text
+🔄 1. REAL-TIME WINGO MINER LOOP:
+[Wingo 30S API] ➡️ Polls every 1.5s ➡️ [Check: New Period?]
+                                            ├── ❌ No  ➡️ Sleep & Poll again
+                                            └── ✅ Yes ➡️ [Fetch Last 10 Rounds]
+
+📥 2. DATA INGESTION & DE-DUPLICATION:
+[Last 10 Rounds] ➡️ Strictly parse 17-digit Period IDs (Strings) ➡️ [Check: Duplicate?]
+                                                                          ├── ❌ Yes ➡️ Ignore / Skip
+                                                                          └── ✅ No  ➡️ [Prepare Database Entry]
+
+🛡️ 3. HYBRID DATABASE ROUTING (SELF-HEALING):
+[Save Record] ➡️ [Check: DATABASE_URL present?]
+                      ├── ❌ No (Local) ➡️ [Save to EXTRACTED/rounds.xlsx]
+                      └── ✅ Yes (Neon) ➡️ [Attempt Postgres Connection]
+                                                 ├── ❌ Fail (Quota/Auth) ➡️ Fallback ➡️ [Save to Excel]
+                                                 └── ✅ Pass ➡️ [Check: DB Empty?]
+                                                                    ├── ✅ Yes ➡️ [Seeder: Sync 20,012 rounds] ➡️ [Save to Neon SQL]
+                                                                    └── ❌ No  ➡️ [Save to Neon SQL]
+
+🧠 4. MACHINE LEARNING TRAINING LOOP:
+[Saved Rounds] ➡️ Trigger ML Training ➡️ Load historical dataset (Excel or SQL)
+                                                 ➡️ Filter out NaN & format Period IDs
+                                                 ➡️ Construct 3-period rolling lag vectors
+                                                 ➡️ Train High-Performance Random Forest
+                                                 ➡️ [Model Saved in memory]
+
+🔮 5. FORECAST & OUTCOME EVALUATION:
+[Model in memory] ➡️ Generate prediction for next Period (e.g. 20260519100050343)
+                      ➡️ Predict Size (Big/Small) & Color (Red/Green)
+                      ➡️ Wait for Wingo Miner to fetch next completed period
+                      ➡️ Compare actual draw outcome vs predicted forecast
+                      ➡️ Calculate Win/Loss stats ➡️ [Serve to FastAPI & Dashboard UI 📈]
+```
+
+---
+
+## 🗺️ High-Level Mermaid Architecture
+
 
 This flowchart visualizes the complete process flow, from raw real-time Wingo data extraction to AI-driven predictions and our dynamic self-healing database failover mechanism.
 
