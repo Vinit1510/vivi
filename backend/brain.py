@@ -20,7 +20,7 @@ def compute_streak(series):
     return pd.Series(streak).shift(1).fillna(0)
 
 # ==========================================================================
-# VIVI MACHINE LEARNING PREDICTION BRAIN (20,000+ ROUNDS ESTIMATOR)
+# VIVI MACHINE LEARNING PREDICTION BRAIN (PROPRIETARY BIAS ENGINE)
 # ==========================================================================
 class MLBrain:
     def __init__(self):
@@ -29,6 +29,8 @@ class MLBrain:
         self.is_trained = False
         self.features_list = []
         self.lag_window = 20  # Updated: Consider the last 20 rounds!
+        self.hour_big_bias = {}
+        self.hour_red_bias = {}
         self.lock = threading.Lock()
         
     def train_from_excel(self):
@@ -70,11 +72,30 @@ class MLBrain:
                     print(f"[MLBrain Warning] Dataset size ({len(df)}) too small to initialize machine learning.")
                     return False
                 
-                print(f"[MLBrain] Ingested {len(df)} rounds. Constructing rolling lag vectors...")
+                # Parse sequential Wingo round count (1 to 2880) to extract exact hour of day
+                df['round_seq'] = pd.to_numeric(df['period_id'].astype(str).str[-4:], errors='coerce')
+                df = df.dropna(subset=['round_seq']).reset_index(drop=True)
                 
-                # Encode values (Binary representation)
+                # Calculate hourly blocks (0 to 23)
+                df['hour'] = ((df['round_seq'] - 1) // 120).astype(int)
+                
+                # Calculate cyclical 24-hour circular coordinates
+                df['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24.0)
+                df['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24.0)
+                
+                # Clean size and color binary representations
                 df['size_encoded'] = df['size'].apply(lambda x: 1 if str(x).strip().lower() == 'big' else 0)
                 df['color_encoded'] = df['color'].apply(lambda x: 1 if 'red' in str(x).strip().lower() else 0)
+                
+                # Calculate historical hourly baseline biases (The Bias Engine!)
+                self.hour_big_bias = df.groupby('hour')['size_encoded'].mean().to_dict()
+                self.hour_red_bias = df.groupby('hour')['color_encoded'].mean().to_dict()
+                
+                # Map bias profiles to each row
+                df['hour_big_bias'] = df['hour'].map(self.hour_big_bias).fillna(0.5)
+                df['hour_red_bias'] = df['hour'].map(self.hour_red_bias).fillna(0.5)
+                
+                print(f"[MLBrain] Ingested {len(df)} rounds. Constructing rolling lag vectors...")
                 
                 # Circular sine/cosine encoding of Wingo numbers
                 df['num_sin'] = np.sin(2 * np.pi * df['number'] / 10.0)
@@ -84,7 +105,8 @@ class MLBrain:
                 df['size_streak'] = compute_streak(df['size_encoded'])
                 df['color_streak'] = compute_streak(df['color_encoded'])
                 
-                features = ['size_streak', 'color_streak']
+                # Set baseline features (Bias Engine + Streaks)
+                features = ['hour_sin', 'hour_cos', 'hour_big_bias', 'hour_red_bias', 'size_streak', 'color_streak']
                 lag_window = self.lag_window
                 
                 # Generate lag features (lags 1 through 20)
@@ -164,6 +186,17 @@ class MLBrain:
                 if len(df_recent) < 25:
                     return None
                 
+                # Parse Wingo sequential round index for the NEXT forthcoming period we want to predict!
+                latest_period_str = str(df_recent.iloc[-1]['period_id']).strip().split('.')[0]
+                latest_period_int = int(latest_period_str)
+                next_period_int = latest_period_int + 1
+                
+                # Extract Wingo consecutive round sequential code (last 4 digits)
+                next_round_seq = int(str(next_period_int)[-4:])
+                
+                # Calculate next round's hour of day (0 to 23)
+                next_hour = (next_round_seq - 1) // 120
+                
                 # Encode values
                 df_recent['size_encoded'] = df_recent['size'].apply(lambda x: 1 if str(x).strip().lower() == 'big' else 0)
                 df_recent['color_encoded'] = df_recent['color'].apply(lambda x: 1 if 'red' in str(x).strip().lower() else 0)
@@ -176,8 +209,12 @@ class MLBrain:
                 df_recent['size_streak'] = compute_streak(df_recent['size_encoded'])
                 df_recent['color_streak'] = compute_streak(df_recent['color_encoded'])
                 
-                # Build predictive lag dictionary
+                # Build predictive lag dictionary incorporating the Bias Engine features!
                 feat_dict = {
+                    'hour_sin': float(np.sin(2 * np.pi * next_hour / 24.0)),
+                    'hour_cos': float(np.cos(2 * np.pi * next_hour / 24.0)),
+                    'hour_big_bias': float(self.hour_big_bias.get(next_hour, 0.5)),
+                    'hour_red_bias': float(self.hour_red_bias.get(next_hour, 0.5)),
                     'size_streak': float(df_recent['size_streak'].iloc[-1]),
                     'color_streak': float(df_recent['color_streak'].iloc[-1])
                 }
@@ -276,7 +313,6 @@ def generate_forecast():
             "size_confidence": 58.4,
             "color_confidence": 56.2
         }
-
         
     except Exception as e:
         print(f"[Forecast Fallback Warning] Forecast generation exception: {e}")
@@ -286,4 +322,3 @@ def generate_forecast():
             "size_confidence": 50.0,
             "color_confidence": 50.0
         }
-
