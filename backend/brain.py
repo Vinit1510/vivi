@@ -217,13 +217,9 @@ class MLBrain:
                 size_conf = min(99.9, max(55.0, size_conf + random.uniform(-1.0, 1.0)))
                 color_conf = min(99.9, max(55.0, color_conf + random.uniform(-1.0, 1.0)))
                 
-                # If confidence is below 62.0%, route as "SKIP" to enforce the 70-75% win-rate filter!
-                final_size = pred_size if size_conf >= 62.0 else "SKIP"
-                final_color = pred_color if color_conf >= 62.0 else "SKIP"
-                
                 return {
-                    "size": final_size,
-                    "color": final_color,
+                    "size": pred_size,
+                    "color": pred_color,
                     "size_confidence": round(size_conf, 1),
                     "color_confidence": round(color_conf, 1)
                 }
@@ -270,13 +266,17 @@ def generate_forecast():
         df_all = pd.DataFrame(all_data)
         latest_num = int(df_all.iloc[0]['number'])
         
-        # Heuristics are low-confidence baseline, so we tag them as "SKIP" to protect capital!
+        # Simple mathematical size/color heuristics
+        size_heuristic = "Small" if latest_num >= 5 else "Big"
+        color_heuristic = "Red" if latest_num in [0, 2, 4, 6, 8] else "Green"
+        
         return {
-            "size": "SKIP",
-            "color": "SKIP",
+            "size": size_heuristic,
+            "color": color_heuristic,
             "size_confidence": 58.4,
             "color_confidence": 56.2
         }
+
         
     except Exception as e:
         print(f"[Forecast Fallback Warning] Forecast generation exception: {e}")
