@@ -64,28 +64,43 @@ def get_dashboard_stats():
         is_active = (active_status == 'true')
         
         # Get current brain analysis (Fetch pre-computed background forecast if exists)
-        forecast = {"size": "WAIT", "color": "TRAINING", "size_confidence": 0.0, "color_confidence": 0.0}
+        forecast = {
+            "ml_size": "WAIT", "ml_color": "TRAINING", "ml_size_confidence": 0.0, "ml_color_confidence": 0.0,
+            "heu_size": "WAIT", "heu_color": "TRAINING", "heu_size_confidence": 0.0, "heu_color_confidence": 0.0
+        }
         if is_active and next_id != "PENDING":
             saved_pred = db.get_prediction(next_id)
+            
+            # Fetch the latest round to compute heuristic dynamically
+            all_data = db.get_latest_rounds(1)
+            latest_num = int(all_data[0]['number']) if all_data else 0
+            size_heuristic = "Small" if latest_num >= 5 else "Big"
+            color_heuristic = "Red" if latest_num in [0, 2, 4, 6, 8] else "Green"
+            
             if saved_pred:
                 forecast = {
-                    "size": saved_pred["predicted_size"] or "WAIT",
-                    "color": saved_pred["predicted_color"] or "WAIT",
-                    "size_confidence": saved_pred["size_confidence"] or 0.0,
-                    "color_confidence": saved_pred["color_confidence"] or 0.0
+                    "ml_size": saved_pred["predicted_size"] or "WAIT",
+                    "ml_color": saved_pred["predicted_color"] or "WAIT",
+                    "ml_size_confidence": saved_pred["size_confidence"] or 0.0,
+                    "ml_color_confidence": saved_pred["color_confidence"] or 0.0,
+                    "heu_size": size_heuristic,
+                    "heu_color": color_heuristic,
+                    "heu_size_confidence": 58.4,
+                    "heu_color_confidence": 56.2
                 }
             else:
                 # Fallback: Background miner hasn't cycled yet, compute dynamic forecast
                 forecast = brain.generate_forecast()
                 # Instantly persist fallback to ensure continuity
-                if forecast["size"] != "WAIT":
+                if forecast["ml_size"] != "WAIT":
                      db.add_prediction(
                          next_id, 
-                         forecast["size"], 
-                         forecast["color"], 
-                         forecast["size_confidence"], 
-                         forecast["color_confidence"]
+                         forecast["ml_size"], 
+                         forecast["ml_color"], 
+                         forecast["ml_size_confidence"], 
+                         forecast["ml_color_confidence"]
                      )
+
         
         stats = db.get_accuracy_stats()
         

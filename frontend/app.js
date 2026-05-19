@@ -31,13 +31,7 @@ setInterval(() => {
 
 // Dom Refs for Prediction Box (Separated Gauges)
 const predPeriodEl = document.getElementById('pred-period-id');
-const fSizeEl = document.getElementById('forecast-size');
-const fColorEl = document.getElementById('forecast-color');
 
-const confBarSizeEl = document.getElementById('conf-bar-size');
-const confTextSizeEl = document.getElementById('conf-pct-size');
-const confBarColorEl = document.getElementById('conf-bar-color');
-const confTextColorEl = document.getElementById('conf-pct-color');
 
 // 📈 Fetch Stats
 async function fetchStats() {
@@ -55,18 +49,48 @@ async function fetchStats() {
         predPeriodEl.textContent = `PERIOD: ...${data.next_period.toString().slice(-6)}`;
         const fore = data.forecast;
         
-        fSizeEl.textContent = fore.size.toUpperCase();
-        fSizeEl.className = `forecast-bubble ${fore.size.toLowerCase()}`;
+        // 1. Update AI Machine Learning Elements
+        const fSizeMl = document.getElementById('forecast-size-ml');
+        const fColorMl = document.getElementById('forecast-color-ml');
+        const confBarSizeMl = document.getElementById('conf-bar-size-ml');
+        const confTextSizeMl = document.getElementById('conf-pct-size-ml');
+        const confBarColorMl = document.getElementById('conf-bar-color-ml');
+        const confTextColorMl = document.getElementById('conf-pct-color-ml');
         
-        fColorEl.textContent = fore.color.toUpperCase();
-        fColorEl.className = `forecast-bubble ${fore.color.toLowerCase()}`;
+        if (fSizeMl && fore.ml_size) {
+            fSizeMl.textContent = fore.ml_size.toUpperCase();
+            fSizeMl.className = `forecast-bubble ${fore.ml_size.toLowerCase()}`;
+        }
+        if (fColorMl && fore.ml_color) {
+            fColorMl.textContent = fore.ml_color.toUpperCase();
+            fColorMl.className = `forecast-bubble ${fore.ml_color.toLowerCase()}`;
+        }
+        if (confBarSizeMl) confBarSizeMl.style.width = `${fore.ml_size_confidence}%`;
+        if (confTextSizeMl) confTextSizeMl.textContent = `${fore.ml_size_confidence}% MATCH`;
+        if (confBarColorMl) confBarColorMl.style.width = `${fore.ml_color_confidence}%`;
+        if (confTextColorMl) confTextColorMl.textContent = `${fore.ml_color_confidence}% MATCH`;
         
-        // Set granular meters
-        confBarSizeEl.style.width = `${fore.size_confidence}%`;
-        confTextSizeEl.textContent = `${fore.size_confidence}% MATCH`;
+        // 2. Update Mathematical Heuristic Elements
+        const fSizeHeu = document.getElementById('forecast-size-heu');
+        const fColorHeu = document.getElementById('forecast-color-heu');
+        const confBarSizeHeu = document.getElementById('conf-bar-size-heu');
+        const confTextSizeHeu = document.getElementById('conf-pct-size-heu');
+        const confBarColorHeu = document.getElementById('conf-bar-color-heu');
+        const confTextColorHeu = document.getElementById('conf-pct-color-heu');
         
-        confBarColorEl.style.width = `${fore.color_confidence}%`;
-        confTextColorEl.textContent = `${fore.color_confidence}% MATCH`;
+        if (fSizeHeu && fore.heu_size) {
+            fSizeHeu.textContent = fore.heu_size.toUpperCase();
+            fSizeHeu.className = `forecast-bubble ${fore.heu_size.toLowerCase()}`;
+        }
+        if (fColorHeu && fore.heu_color) {
+            fColorHeu.textContent = fore.heu_color.toUpperCase();
+            fColorHeu.className = `forecast-bubble ${fore.heu_color.toLowerCase()}`;
+        }
+        if (confBarSizeHeu) confBarSizeHeu.style.width = `${fore.heu_size_confidence}%`;
+        if (confTextSizeHeu) confTextSizeHeu.textContent = `${fore.heu_size_confidence}% MATCH`;
+        if (confBarColorHeu) confBarColorHeu.style.width = `${fore.heu_color_confidence}%`;
+        if (confTextColorHeu) confTextColorHeu.textContent = `${fore.heu_color_confidence}% MATCH`;
+
 
         // Process overall accuracy
         const stats = data.stats;

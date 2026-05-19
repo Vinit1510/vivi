@@ -89,19 +89,20 @@ def verify_active_prediction():
             
         import brain
         forecast = brain.generate_forecast()
-        if forecast.get("size") == "WAIT":
+        if forecast.get("ml_size") == "WAIT":
             return
             
         db.add_prediction(
             next_id, 
-            forecast.get("size"), 
-            forecast.get("color"), 
-            forecast.get("size_confidence"), 
-            forecast.get("color_confidence")
+            forecast.get("ml_size"), 
+            forecast.get("ml_color"), 
+            forecast.get("ml_size_confidence"), 
+            forecast.get("ml_color_confidence")
         )
         print(f"🔮 Daemon Prediction successfully registered for Period {next_id}.")
     except Exception as e:
         print(f"⚠️ Autonomous prediction failure: {e}")
+
 
 def start_miner_loop():
     print("🚀 Initializing Vivi 24/7 Miner (Excel Database Mode)...")

@@ -76,29 +76,52 @@
                     <div class="pred-period" id="pred-period-id">...LOADING</div>
                 </div>
                 
-                <div class="pred-body">
+                <div class="pred-body" style="display: flex; flex-direction: column; gap: 20px;">
+                    <!-- BLOCK 1: AI MACHINE LEARNING ENGINE -->
                     <div class="pred-segment">
-                        <span class="seg-label">VIVI FORECAST</span>
-                        <div class="pred-value-pair">
-                            <div class="forecast-bubble" id="forecast-size">WAIT</div>
-                            <div class="forecast-bubble" id="forecast-color">CALCULATING</div>
+                        <span class="seg-label" style="display: flex; align-items: center; gap: 8px; color: #c084fc; font-weight: 800;">
+                            <span class="dot online pulse" style="background-color: #a855f7; box-shadow: 0 0 10px #a855f7;"></span> 🧠 AI MACHINE LEARNING MODEL
+                        </span>
+                        <div class="pred-value-pair" style="margin-top: 8px;">
+                            <div class="forecast-bubble" id="forecast-size-ml">WAIT</div>
+                            <div class="forecast-bubble" id="forecast-color-ml">CALCULATING</div>
+                        </div>
+                        <div class="dual-confidences" style="margin-top: 12px; gap: 8px;">
+                            <div class="pred-confidence">
+                                <div class="conf-bar" style="height: 6px;"><div class="conf-fill" id="conf-bar-size-ml" style="width: 0%; background: linear-gradient(90deg, #a855f7, #c084fc);"></div></div>
+                                <div class="conf-text" id="conf-pct-size-ml" style="font-size: 10px; color: #e9d5ff; font-weight: 700; margin-top: 2px;">0% MATCH</div>
+                            </div>
+                            <div class="pred-confidence">
+                                <div class="conf-bar" style="height: 6px;"><div class="conf-fill" id="conf-bar-color-ml" style="width: 0%; background: linear-gradient(90deg, #a855f7, #c084fc);"></div></div>
+                                <div class="conf-text" id="conf-pct-color-ml" style="font-size: 10px; color: #e9d5ff; font-weight: 700; margin-top: 2px;">0% MATCH</div>
+                            </div>
                         </div>
                     </div>
                     
-                    <!-- GRANULAR SPLIT CONFIDENCE CONTROLS -->
-                    <div class="dual-confidences">
-                        <div class="pred-confidence">
-                            <div class="conf-label">SIZE CONFIDENCE</div>
-                            <div class="conf-bar"><div class="conf-fill" id="conf-bar-size" style="width: 0%;"></div></div>
-                            <div class="conf-text" id="conf-pct-size">0% MATCH</div>
+                    <div style="width: 100%; height: 1px; background: rgba(255,255,255,0.08); margin: 5px 0;"></div>
+                    
+                    <!-- BLOCK 2: MATHEMATICAL HEURISTIC ENGINE -->
+                    <div class="pred-segment">
+                        <span class="seg-label" style="display: flex; align-items: center; gap: 8px; color: #60a5fa; font-weight: 800;">
+                            <span class="dot online pulse" style="background-color: #3b82f6; box-shadow: 0 0 10px #3b82f6;"></span> 🧮 MATHEMATICAL HEURISTIC MODEL
+                        </span>
+                        <div class="pred-value-pair" style="margin-top: 8px;">
+                            <div class="forecast-bubble" id="forecast-size-heu">WAIT</div>
+                            <div class="forecast-bubble" id="forecast-color-heu">CALCULATING</div>
                         </div>
-                        <div class="pred-confidence">
-                            <div class="conf-label">COLOR CONFIDENCE</div>
-                            <div class="conf-bar"><div class="conf-fill" id="conf-bar-color" style="width: 0%;"></div></div>
-                            <div class="conf-text" id="conf-pct-color">0% MATCH</div>
+                        <div class="dual-confidences" style="margin-top: 12px; gap: 8px;">
+                            <div class="pred-confidence">
+                                <div class="conf-bar" style="height: 6px;"><div class="conf-fill" id="conf-bar-size-heu" style="width: 0%; background: linear-gradient(90deg, #3b82f6, #60a5fa);"></div></div>
+                                <div class="conf-text" id="conf-pct-size-heu" style="font-size: 10px; color: #dbeafe; font-weight: 700; margin-top: 2px;">0% MATCH</div>
+                            </div>
+                            <div class="pred-confidence">
+                                <div class="conf-bar" style="height: 6px;"><div class="conf-fill" id="conf-bar-color-heu" style="width: 0%; background: linear-gradient(90deg, #3b82f6, #60a5fa);"></div></div>
+                                <div class="conf-text" id="conf-pct-color-heu" style="font-size: 10px; color: #dbeafe; font-weight: 700; margin-top: 2px;">0% MATCH</div>
+                            </div>
                         </div>
                     </div>
                 </div>
+
             </div>
 
             <!-- RIGHT COMPONENT: CONTROL TOGGLE (40%) -->
