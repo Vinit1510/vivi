@@ -249,6 +249,8 @@ body::before {
 .forecast-bubble.small { color: #60a5fa; border-color: rgba(96, 165, 250, 0.3); box-shadow: inset 0 0 20px rgba(96, 165, 250, 0.1); }
 .forecast-bubble.red { color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
 .forecast-bubble.green { color: #10b981; border-color: rgba(16, 185, 129, 0.3); }
+.forecast-bubble.skip { color: #94a3b8; border-color: rgba(148, 163, 184, 0.25); box-shadow: inset 0 0 20px rgba(148, 163, 184, 0.05); text-shadow: none; font-size: 18px; letter-spacing: 0.5px; }
+
 
 /* Split confidence block inside prediction container */
 .dual-confidences {
