@@ -145,8 +145,8 @@ if use_postgres:
         use_postgres = False
 
 def pg_execute(query, params=None, fetch=None):
-    if not pg_pool:
-        return None
+    if not pg_pool or not use_postgres:
+        raise RuntimeError("Postgres database pool is not active or has been disabled.")
     conn = pg_pool.getconn()
     try:
         conn.autocommit = True
@@ -215,23 +215,26 @@ def save_preds(df):
 # PUBLIC INTERFACE FOR BACKEND SYSTEMS
 # ==========================================================================
 def get_system_config(key, default='false'):
+    global use_postgres
     if use_postgres:
         try:
             res = pg_execute("SELECT value FROM system_config WHERE key = %s", (key,), fetch='one')
             return res[0] if res else default
-        except Exception:
-            return default
-    else:
-        try:
-            if os.path.exists(CONFIG_PATH):
-                with open(CONFIG_PATH, 'r') as f:
-                    data = json.load(f)
-                    return data.get(key, default)
-            return default
-        except Exception:
-            return default
+        except Exception as e:
+            print(f"[PostgresDB Failover] get_system_config failed: {e}. Switching to Excel.")
+            use_postgres = False
+            
+    try:
+        if os.path.exists(CONFIG_PATH):
+            with open(CONFIG_PATH, 'r') as f:
+                data = json.load(f)
+                return data.get(key, default)
+        return default
+    except Exception:
+        return default
 
 def set_system_config(key, value):
+    global use_postgres
     if use_postgres:
         try:
             pg_execute("""
@@ -240,56 +243,62 @@ def set_system_config(key, value):
                 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP;
             """, (key, str(value)))
             return True
-        except Exception:
-            return False
-    else:
-        try:
-            data = {}
-            if os.path.exists(CONFIG_PATH):
-                with open(CONFIG_PATH, 'r') as f:
-                    data = json.load(f)
-            data[key] = str(value)
-            with open(CONFIG_PATH, 'w') as f:
-                json.dump(data, f)
-            return True
-        except Exception:
-            return False
+        except Exception as e:
+            print(f"[PostgresDB Failover] set_system_config failed: {e}. Switching to Excel.")
+            use_postgres = False
+            
+    try:
+        data = {}
+        if os.path.exists(CONFIG_PATH):
+            with open(CONFIG_PATH, 'r') as f:
+                data = json.load(f)
+        data[key] = str(value)
+        with open(CONFIG_PATH, 'w') as f:
+            json.dump(data, f)
+        return True
+    except Exception:
+        return False
 
 def get_total_rounds_count():
+    global use_postgres
     if use_postgres:
         try:
             res = pg_execute("SELECT COUNT(*) FROM rounds;", fetch='one')
             return res[0] if res else 0
+        except Exception as e:
+            print(f"[PostgresDB Failover] get_total_rounds_count failed: {e}. Switching to Excel.")
+            use_postgres = False
+            
+    with excel_lock:
+        try:
+            df = load_rounds()
+            return len(df)
         except Exception:
             return 0
-    else:
-        with excel_lock:
-            try:
-                df = load_rounds()
-                return len(df)
-            except Exception:
-                return 0
 
 def get_latest_round_id():
+    global use_postgres
     if use_postgres:
         try:
             res = pg_execute("SELECT period_id FROM rounds ORDER BY period_id DESC LIMIT 1;", fetch='one')
             return int(res[0]) if res else 0
+        except Exception as e:
+            print(f"[PostgresDB Failover] get_latest_round_id failed: {e}. Switching to Excel.")
+            use_postgres = False
+            
+    with excel_lock:
+        try:
+            df = load_rounds()
+            if len(df) > 0:
+                nums = pd.to_numeric(df['period_id'], errors='coerce').dropna()
+                if len(nums) > 0:
+                    return int(nums.max())
+            return 0
         except Exception:
             return 0
-    else:
-        with excel_lock:
-            try:
-                df = load_rounds()
-                if len(df) > 0:
-                    nums = pd.to_numeric(df['period_id'], errors='coerce').dropna()
-                    if len(nums) > 0:
-                        return int(nums.max())
-                return 0
-            except Exception:
-                return 0
 
 def add_round(period_id, number, size, color, raw_json):
+    global use_postgres
     if use_postgres:
         try:
             pg_execute("""
@@ -299,37 +308,38 @@ def add_round(period_id, number, size, color, raw_json):
             """, (str(period_id), int(number), str(size), str(color), str(raw_json)))
             return True
         except Exception as e:
-            print(f"[PostgresDB Error] add_round: {e}")
+            print(f"[PostgresDB Failover] add_round failed: {e}. Switching to Excel.")
+            use_postgres = False
+            
+    with excel_lock:
+        try:
+            df = load_rounds()
+            period_id_str = str(period_id).strip().split('.')[0]
+            if period_id_str in df['period_id'].values:
+                return False # Duplicate
+            
+            next_id = int(df['id'].max() + 1) if len(df) > 0 else 1
+            now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")
+            
+            new_row = {
+                'id': next_id,
+                'period_id': period_id_str,
+                'number': int(number),
+                'size': str(size),
+                'color': str(color),
+                'raw_json': str(raw_json),
+                'created_at': now_str
+            }
+            
+            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+            save_rounds(df)
+            return True
+        except Exception as ex:
+            print(f"[ExcelDB Error] add_round: {ex}")
             return False
-    else:
-        with excel_lock:
-            try:
-                df = load_rounds()
-                period_id_str = str(period_id).strip().split('.')[0]
-                if period_id_str in df['period_id'].values:
-                    return False # Duplicate
-                
-                next_id = int(df['id'].max() + 1) if len(df) > 0 else 1
-                now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")
-                
-                new_row = {
-                    'id': next_id,
-                    'period_id': period_id_str,
-                    'number': int(number),
-                    'size': str(size),
-                    'color': str(color),
-                    'raw_json': str(raw_json),
-                    'created_at': now_str
-                }
-                
-                df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-                save_rounds(df)
-                return True
-            except Exception as e:
-                print(f"[ExcelDB Error] add_round: {e}")
-                return False
 
 def add_prediction(period_id, predicted_size, predicted_color, size_confidence, color_confidence):
+    global use_postgres
     if use_postgres:
         try:
             pg_execute("""
@@ -339,58 +349,61 @@ def add_prediction(period_id, predicted_size, predicted_color, size_confidence, 
             """, (str(period_id), str(predicted_size), str(predicted_color), float(size_confidence), float(color_confidence)))
             return True
         except Exception as e:
-            print(f"[PostgresDB Error] add_prediction: {e}")
+            print(f"[PostgresDB Failover] add_prediction failed: {e}. Switching to Excel.")
+            use_postgres = False
+            
+    with excel_lock:
+        try:
+            df = load_preds()
+            period_id_str = str(period_id).strip().split('.')[0]
+            if period_id_str in df['period_id'].values:
+                return False # Duplicate
+            
+            next_id = int(df['id'].max() + 1) if len(df) > 0 else 1
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            new_row = {
+                'id': next_id,
+                'period_id': period_id_str,
+                'predicted_size': str(predicted_size),
+                'predicted_color': str(predicted_color),
+                'size_confidence': float(size_confidence),
+                'color_confidence': float(color_confidence),
+                'actual_size': None,
+                'actual_color': None,
+                'size_result': None,
+                'color_result': None,
+                'is_processed': False,
+                'created_at': now_str
+            }
+            
+            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+            save_preds(df)
+            return True
+        except Exception as ex:
+            print(f"[ExcelDB Error] add_prediction: {ex}")
             return False
-    else:
-        with excel_lock:
-            try:
-                df = load_preds()
-                period_id_str = str(period_id).strip().split('.')[0]
-                if period_id_str in df['period_id'].values:
-                    return False # Duplicate
-                
-                next_id = int(df['id'].max() + 1) if len(df) > 0 else 1
-                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                
-                new_row = {
-                    'id': next_id,
-                    'period_id': period_id_str,
-                    'predicted_size': str(predicted_size),
-                    'predicted_color': str(predicted_color),
-                    'size_confidence': float(size_confidence),
-                    'color_confidence': float(color_confidence),
-                    'actual_size': None,
-                    'actual_color': None,
-                    'size_result': None,
-                    'color_result': None,
-                    'is_processed': False,
-                    'created_at': now_str
-                }
-                
-                df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-                save_preds(df)
-                return True
-            except Exception as e:
-                print(f"[ExcelDB Error] add_prediction: {e}")
-                return False
 
 def check_prediction_exists(period_id):
+    global use_postgres
     if use_postgres:
         try:
             res = pg_execute("SELECT EXISTS(SELECT 1 FROM predictions WHERE period_id = %s);", (str(period_id),), fetch='one')
             return bool(res[0]) if res else False
+        except Exception as e:
+            print(f"[PostgresDB Failover] check_prediction_exists failed: {e}. Switching to Excel.")
+            use_postgres = False
+            
+    with excel_lock:
+        try:
+            df = load_preds()
+            period_id_str = str(period_id).strip().split('.')[0]
+            return period_id_str in df['period_id'].values
         except Exception:
             return False
-    else:
-        with excel_lock:
-            try:
-                df = load_preds()
-                period_id_str = str(period_id).strip().split('.')[0]
-                return period_id_str in df['period_id'].values
-            except Exception:
-                return False
 
 def get_prediction(period_id):
+    global use_postgres
     if use_postgres:
         try:
             res = pg_execute("SELECT predicted_size, predicted_color, size_confidence, color_confidence FROM predictions WHERE period_id = %s;", (str(period_id),), fetch='one')
@@ -402,27 +415,29 @@ def get_prediction(period_id):
                     "color_confidence": res[3]
                 }
             return None
+        except Exception as e:
+            print(f"[PostgresDB Failover] get_prediction failed: {e}. Switching to Excel.")
+            use_postgres = False
+            
+    with excel_lock:
+        try:
+            df = load_preds()
+            period_id_str = str(period_id).strip().split('.')[0]
+            res = df[df['period_id'] == period_id_str]
+            if len(res) > 0:
+                row = res.iloc[0]
+                return {
+                    "predicted_size": row['predicted_size'],
+                    "predicted_color": row['predicted_color'],
+                    "size_confidence": row['size_confidence'],
+                    "color_confidence": row['color_confidence']
+                }
+            return None
         except Exception:
             return None
-    else:
-        with excel_lock:
-            try:
-                df = load_preds()
-                period_id_str = str(period_id).strip().split('.')[0]
-                res = df[df['period_id'] == period_id_str]
-                if len(res) > 0:
-                    row = res.iloc[0]
-                    return {
-                        "predicted_size": row['predicted_size'],
-                        "predicted_color": row['predicted_color'],
-                        "size_confidence": row['size_confidence'],
-                        "color_confidence": row['color_confidence']
-                    }
-                return None
-            except Exception:
-                return None
 
 def update_prediction_outcomes(period_id, actual_size, actual_color):
+    global use_postgres
     if use_postgres:
         try:
             pred = pg_execute("SELECT predicted_size, predicted_color FROM predictions WHERE period_id = %s", (str(period_id),), fetch='one')
@@ -438,35 +453,36 @@ def update_prediction_outcomes(period_id, actual_size, actual_color):
                 return True
             return False
         except Exception as e:
-            print(f"[PostgresDB Error] update_prediction_outcomes: {e}")
+            print(f"[PostgresDB Failover] update_prediction_outcomes failed: {e}. Switching to Excel.")
+            use_postgres = False
+            
+    with excel_lock:
+        try:
+            df = load_preds()
+            period_id_str = str(period_id).strip().split('.')[0]
+            idx = df[df['period_id'] == period_id_str].index
+            if len(idx) > 0:
+                p_idx = idx[0]
+                pred_size = df.loc[p_idx, 'predicted_size']
+                pred_color = df.loc[p_idx, 'predicted_color']
+                
+                size_res = "WIN" if str(pred_size).strip().lower() == str(actual_size).strip().lower() else "LOSS"
+                color_res = "WIN" if str(pred_color).strip().lower() in str(actual_color).strip().lower() else "LOSS"
+                
+                df.loc[p_idx, 'actual_size'] = str(actual_size)
+                df.loc[p_idx, 'actual_color'] = str(actual_color)
+                df.loc[p_idx, 'size_result'] = size_res
+                df.loc[p_idx, 'color_result'] = color_res
+                df.loc[p_idx, 'is_processed'] = True
+                save_preds(df)
+                return True
             return False
-    else:
-        with excel_lock:
-            try:
-                df = load_preds()
-                period_id_str = str(period_id).strip().split('.')[0]
-                idx = df[df['period_id'] == period_id_str].index
-                if len(idx) > 0:
-                    p_idx = idx[0]
-                    pred_size = df.loc[p_idx, 'predicted_size']
-                    pred_color = df.loc[p_idx, 'predicted_color']
-                    
-                    size_res = "WIN" if str(pred_size).strip().lower() == str(actual_size).strip().lower() else "LOSS"
-                    color_res = "WIN" if str(pred_color).strip().lower() in str(actual_color).strip().lower() else "LOSS"
-                    
-                    df.loc[p_idx, 'actual_size'] = str(actual_size)
-                    df.loc[p_idx, 'actual_color'] = str(actual_color)
-                    df.loc[p_idx, 'size_result'] = size_res
-                    df.loc[p_idx, 'color_result'] = color_res
-                    df.loc[p_idx, 'is_processed'] = True
-                    save_preds(df)
-                    return True
-                return False
-            except Exception as e:
-                print(f"[ExcelDB Error] update_prediction_outcomes: {e}")
-                return False
+        except Exception as ex:
+            print(f"[ExcelDB Error] update_prediction_outcomes: {ex}")
+            return False
 
 def get_accuracy_stats():
+    global use_postgres
     if use_postgres:
         try:
             res = pg_execute("""
@@ -483,28 +499,30 @@ def get_accuracy_stats():
                     "total_preds": int(res[2])
                 }
             return {"size_wins": 0, "color_wins": 0, "total_preds": 0}
+        except Exception as e:
+            print(f"[PostgresDB Failover] get_accuracy_stats failed: {e}. Switching to Excel.")
+            use_postgres = False
+            
+    with excel_lock:
+        try:
+            df = load_preds()
+            processed = df[df['is_processed'] == True]
+            total = len(processed)
+            if total == 0:
+                return {"size_wins": 0, "color_wins": 0, "total_preds": 0}
+            
+            size_wins = len(processed[processed['size_result'] == 'WIN'])
+            color_wins = len(processed[processed['color_result'] == 'WIN'])
+            return {
+                "size_wins": size_wins,
+                "color_wins": color_wins,
+                "total_preds": total
+            }
         except Exception:
             return {"size_wins": 0, "color_wins": 0, "total_preds": 0}
-    else:
-        with excel_lock:
-            try:
-                df = load_preds()
-                processed = df[df['is_processed'] == True]
-                total = len(processed)
-                if total == 0:
-                    return {"size_wins": 0, "color_wins": 0, "total_preds": 0}
-                
-                size_wins = len(processed[processed['size_result'] == 'WIN'])
-                color_wins = len(processed[processed['color_result'] == 'WIN'])
-                return {
-                    "size_wins": size_wins,
-                    "color_wins": color_wins,
-                    "total_preds": total
-                }
-            except Exception:
-                return {"size_wins": 0, "color_wins": 0, "total_preds": 0}
 
 def get_available_dates():
+    global use_postgres
     if use_postgres:
         try:
             res = pg_execute("""
@@ -515,28 +533,29 @@ def get_available_dates():
             """, fetch='all')
             return [str(r["valid_date"]) for r in res]
         except Exception as e:
-            print(f"[PostgresDB Error] get_available_dates: {e}")
-            return []
-    else:
-        with excel_lock:
-            try:
-                df = load_rounds()
-                if len(df) == 0:
-                    return []
-                
-                # Parse created_at timestamps, localizing to Asia/Kolkata (IST)
-                df['parsed_time'] = pd.to_datetime(df['created_at'], errors='coerce')
-                df['ist_time'] = df['parsed_time'].dt.tz_convert('Asia/Kolkata') if df['parsed_time'].dt.tz is not None else df['parsed_time'].dt.tz_localize('UTC').dt.tz_convert('Asia/Kolkata')
-                
-                # Extract date strings
-                dates = df['ist_time'].dt.strftime("%Y-%m-%d").dropna().unique()
-                sorted_dates = sorted(list(dates), reverse=True)
-                return sorted_dates[:30]
-            except Exception as e:
-                print(f"[ExcelDB Error] get_available_dates: {e}")
+            print(f"[PostgresDB Failover] get_available_dates failed: {e}. Switching to Excel.")
+            use_postgres = False
+            
+    with excel_lock:
+        try:
+            df = load_rounds()
+            if len(df) == 0:
                 return []
+            
+            # Parse created_at timestamps, localizing to Asia/Kolkata (IST)
+            df['parsed_time'] = pd.to_datetime(df['created_at'], errors='coerce')
+            df['ist_time'] = df['parsed_time'].dt.tz_convert('Asia/Kolkata') if df['parsed_time'].dt.tz is not None else df['parsed_time'].dt.tz_localize('UTC').dt.tz_convert('Asia/Kolkata')
+            
+            # Extract date strings
+            dates = df['ist_time'].dt.strftime("%Y-%m-%d").dropna().unique()
+            sorted_dates = sorted(list(dates), reverse=True)
+            return sorted_dates[:30]
+        except Exception as e:
+            print(f"[ExcelDB Error] get_available_dates: {e}")
+            return []
 
 def get_hourly_history(target_date):
+    global use_postgres
     if use_postgres:
         try:
             query = """
@@ -590,81 +609,82 @@ def get_hourly_history(target_date):
                 })
             return history
         except Exception as e:
-            print(f"[PostgresDB Error] get_hourly_history: {e}")
-            return []
-    else:
-        with excel_lock:
-            try:
-                df_rounds = load_rounds()
-                df_preds = load_preds()
-                
-                if len(df_rounds) == 0:
-                    return []
-                    
-                # Perform JOIN in pandas
-                df_merged = pd.merge(df_rounds, df_preds, on='period_id', how='left', suffixes=('', '_pred'))
-                
-                # Parse localized time
-                df_merged['parsed_time'] = pd.to_datetime(df_merged['created_at'], errors='coerce')
-                df_merged['ist_time'] = df_merged['parsed_time'].dt.tz_convert('Asia/Kolkata') if df_merged['parsed_time'].dt.tz is not None else df_merged['parsed_time'].dt.tz_localize('UTC').dt.tz_convert('Asia/Kolkata')
-                
-                # Filter by target date
-                df_filtered = df_merged[df_merged['ist_time'].dt.strftime("%Y-%m-%d") == str(target_date)]
-                
-                if len(df_filtered) == 0:
-                    return []
-                    
-                # Extract hours
-                df_filtered['hour'] = df_filtered['ist_time'].dt.hour
-                
-                hourly_data = []
-                for hour, group in df_filtered.groupby('hour'):
-                    # Sort from newest to oldest within each hour
-                    group_sorted = group.sort_values('period_id', ascending=False)
-                    
-                    rounds_list = []
-                    for _, row in group_sorted.iterrows():
-                        time_str = row['ist_time'].strftime("%H:%M:%S") if not pd.isnull(row['ist_time']) else "00:00:00"
-                        
-                        rounds_list.append({
-                            'period_id': str(row['period_id']),
-                            'number': int(row['number']),
-                            'size': str(row['size']),
-                            'color': str(row['color']),
-                            'time': time_str,
-                            'p_size': row['predicted_size'] if not pd.isnull(row['predicted_size']) else None,
-                            'p_color': row['predicted_color'] if not pd.isnull(row['predicted_color']) else None,
-                            'r_size': row['size_result'] if not pd.isnull(row['size_result']) else None,
-                            'r_color': row['color_result'] if not pd.isnull(row['color_result']) else None,
-                            'p_size_conf': float(row['size_confidence']) if not pd.isnull(row['size_confidence']) else None,
-                            'p_color_conf': float(row['color_confidence']) if not pd.isnull(row['color_confidence']) else None,
-                        })
-                    
-                    # Calculate counts
-                    total_preds = len(group_sorted[group_sorted['is_processed'] == True])
-                    size_wins = len(group_sorted[group_sorted['size_result'] == 'WIN'])
-                    color_wins = len(group_sorted[group_sorted['color_result'] == 'WIN'])
-                    
-                    hourly_data.append({
-                        'hour': int(hour),
-                        'count': len(group_sorted),
-                        'total_preds': total_preds,
-                        'size_wins': size_wins,
-                        'color_wins': color_wins,
-                        'rounds': rounds_list
-                    })
-                    
-                # Sort hours descending
-                hourly_data = sorted(hourly_data, key=lambda x: x['hour'], reverse=True)
-                return hourly_data
-                
-            except Exception as e:
-                print(f"[ExcelDB Error] get_hourly_history: {e}")
-                import traceback
-                traceback.print_exc()
+            print(f"[PostgresDB Failover] get_hourly_history failed: {e}. Switching to Excel.")
+            use_postgres = False
+            
+    with excel_lock:
+        try:
+            df_rounds = load_rounds()
+            df_preds = load_preds()
+            
+            if len(df_rounds) == 0:
                 return []
+                
+            # Perform JOIN in pandas
+            df_merged = pd.merge(df_rounds, df_preds, on='period_id', how='left', suffixes=('', '_pred'))
+            
+            # Parse localized time
+            df_merged['parsed_time'] = pd.to_datetime(df_merged['created_at'], errors='coerce')
+            df_merged['ist_time'] = df_merged['parsed_time'].dt.tz_convert('Asia/Kolkata') if df_merged['parsed_time'].dt.tz is not None else df_merged['parsed_time'].dt.tz_localize('UTC').dt.tz_convert('Asia/Kolkata')
+            
+            # Filter by target date
+            df_filtered = df_merged[df_merged['ist_time'].dt.strftime("%Y-%m-%d") == str(target_date)]
+            
+            if len(df_filtered) == 0:
+                return []
+                
+            # Extract hours
+            df_filtered['hour'] = df_filtered['ist_time'].dt.hour
+            
+            hourly_data = []
+            for hour, group in df_filtered.groupby('hour'):
+                # Sort from newest to oldest within each hour
+                group_sorted = group.sort_values('period_id', ascending=False)
+                
+                rounds_list = []
+                for _, row in group_sorted.iterrows():
+                    time_str = row['ist_time'].strftime("%H:%M:%S") if not pd.isnull(row['ist_time']) else "00:00:00"
+                    
+                    rounds_list.append({
+                        'period_id': str(row['period_id']),
+                        'number': int(row['number']),
+                        'size': str(row['size']),
+                        'color': str(row['color']),
+                        'time': time_str,
+                        'p_size': row['predicted_size'] if not pd.isnull(row['predicted_size']) else None,
+                        'p_color': row['predicted_color'] if not pd.isnull(row['predicted_color']) else None,
+                        'r_size': row['size_result'] if not pd.isnull(row['size_result']) else None,
+                        'r_color': row['color_result'] if not pd.isnull(row['color_result']) else None,
+                        'p_size_conf': float(row['size_confidence']) if not pd.isnull(row['size_confidence']) else None,
+                        'p_color_conf': float(row['color_confidence']) if not pd.isnull(row['color_confidence']) else None,
+                    })
+                
+                # Calculate counts
+                total_preds = len(group_sorted[group_sorted['is_processed'] == True])
+                size_wins = len(group_sorted[group_sorted['size_result'] == 'WIN'])
+                color_wins = len(group_sorted[group_sorted['color_result'] == 'WIN'])
+                
+                hourly_data.append({
+                    'hour': int(hour),
+                    'count': len(group_sorted),
+                    'total_preds': total_preds,
+                    'size_wins': size_wins,
+                    'color_wins': color_wins,
+                    'rounds': rounds_list
+                })
+                
+            # Sort hours descending
+            hourly_data = sorted(hourly_data, key=lambda x: x['hour'], reverse=True)
+            return hourly_data
+            
+        except Exception as e:
+            print(f"[ExcelDB Error] get_hourly_history: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
 
 def get_latest_rounds(limit=30):
+    global use_postgres
     if use_postgres:
         try:
             res = pg_execute("SELECT period_id, number, size, color FROM rounds ORDER BY period_id DESC LIMIT %s", (limit,), fetch='all')
@@ -674,27 +694,28 @@ def get_latest_rounds(limit=30):
                 'size': str(r['size']),
                 'color': str(r['color'])
             } for r in res]
+        except Exception as e:
+            print(f"[PostgresDB Failover] get_latest_rounds failed: {e}. Switching to Excel.")
+            use_postgres = False
+            
+    with excel_lock:
+        try:
+            df = load_rounds()
+            if len(df) == 0:
+                return []
+            
+            # Sort from newest to oldest
+            df['num_period'] = pd.to_numeric(df['period_id'], errors='coerce')
+            df_sorted = df.sort_values("num_period", ascending=False).head(limit)
+            
+            rounds_list = []
+            for _, row in df_sorted.iterrows():
+                rounds_list.append({
+                    'period_id': str(row['period_id']),
+                    'number': int(row['number']),
+                    'size': str(row['size']),
+                    'color': str(row['color'])
+                })
+            return rounds_list
         except Exception:
             return []
-    else:
-        with excel_lock:
-            try:
-                df = load_rounds()
-                if len(df) == 0:
-                    return []
-                
-                # Sort from newest to oldest
-                df['num_period'] = pd.to_numeric(df['period_id'], errors='coerce')
-                df_sorted = df.sort_values("num_period", ascending=False).head(limit)
-                
-                rounds_list = []
-                for _, row in df_sorted.iterrows():
-                    rounds_list.append({
-                        'period_id': str(row['period_id']),
-                        'number': int(row['number']),
-                        'size': str(row['size']),
-                        'color': str(row['color'])
-                    })
-                return rounds_list
-            except Exception:
-                return []
