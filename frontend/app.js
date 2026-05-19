@@ -17,6 +17,8 @@ let isPredictionActive = false;
 let currentTotalIngested = 0;
 let activeDateString = null;
 let activeSelectedHour = null; // Remembers which hour's sidebar is currently active!
+let activeTab = 'core';
+
 
 // 📊 Analytical Sidebar DOM References
 const sidebar10Empty = document.getElementById('empty-10min');
@@ -108,6 +110,11 @@ async function fetchStats() {
         // Set toggle state
         updateToggleButton(data.prediction_enabled);
 
+        // Background auto-refresh for 10-Period Scalper when tab is active!
+        if (activeTab === 'scalper') {
+            fetchScalperStats();
+        }
+
         // SILENT AUTO-REFRESH TRIGGER: If round count increments, push seamless update to UI!
         if (dataGrown && activeDateString) {
             console.log("🔄 New data ingestion detected. Performing seamless timeline hot-swap...");
@@ -117,6 +124,7 @@ async function fetchStats() {
         console.error("Stat fetch failure:", err);
     }
 }
+
 
 // ⏯ Toggle Handler
 function updateToggleButton(active) {
@@ -496,3 +504,102 @@ fetchDates();
 
 // Continuous background polling for stats every 2 seconds (Handles instant silent table refreshes)
 setInterval(fetchStats, 2000);
+
+// 🔮 Fetch 10-Period Scalper Stats
+async function fetchScalperStats() {
+    try {
+        const res = await fetch(`${API_BASE}/api/scalper-stats`);
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        // 1. Update Next Forecast UI elements
+        const scalperPeriodEl = document.getElementById('scalper-period-id');
+        const fSizeScalper = document.getElementById('scalper-forecast-size');
+        const fColorScalper = document.getElementById('scalper-forecast-color');
+        
+        const confBarSizeScalper = document.getElementById('scalper-conf-size');
+        const confTextSizeScalper = document.getElementById('scalper-conf-pct-size');
+        const confBarColorScalper = document.getElementById('scalper-conf-color');
+        const confTextColorScalper = document.getElementById('scalper-conf-pct-color');
+        
+        // Get next forthcoming period ID dynamically
+        const nextPeriodId = currentTotalIngested > 0 ? (currentTotalIngested + 1) : "...";
+        scalperPeriodEl.textContent = `PERIOD: ...${nextPeriodId.toString().slice(-6)}`;
+        
+        const fore = data.next_forecast;
+        if (fore) {
+            fSizeScalper.textContent = fore.size.toUpperCase();
+            fSizeScalper.className = `forecast-bubble ${fore.size.toLowerCase()}`;
+            
+            fColorScalper.textContent = fore.color.toUpperCase();
+            fColorScalper.className = `forecast-bubble ${fore.color.toLowerCase()}`;
+            
+            confBarSizeScalper.style.width = `${fore.size_confidence}%`;
+            confTextSizeScalper.textContent = `${fore.size_confidence}% MATCH`;
+            
+            confBarColorScalper.style.width = `${fore.color_confidence}%`;
+            confTextColorScalper.textContent = `${fore.color_confidence}% MATCH`;
+        }
+        
+        // 2. Render Backtest Performance Table Rows
+        const tbody = document.getElementById('scalper-table-body');
+        if (!tbody) return;
+        
+        if (!data.history || data.history.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 30px; color: #64748b;">Waiting for data ingestion...</td></tr>`;
+            return;
+        }
+        
+        let html = '';
+        data.history.forEach(row => {
+            const sizeBadge = row.size_result === 'WIN' ? '<span class="badge win">WIN</span>' : '<span class="badge loss">LOSS</span>';
+            const colorBadge = row.color_result === 'WIN' ? '<span class="badge win">WIN</span>' : '<span class="badge loss">LOSS</span>';
+            
+            const numColorClass = getColorClass(row.actual_color);
+            
+            html += `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.04); height: 55px; vertical-align: middle;">
+                    <td style="padding: 12px; font-weight: 700; color: #cbd5e1;">...${row.period_id.toString().slice(-6)}</td>
+                    <td style="padding: 12px;"><span class="num-circle ${numColorClass}">${row.number}</span></td>
+                    <td style="padding: 12px; text-align: center;"><span class="forecast-bubble ${row.actual_size.toLowerCase()}" style="font-size: 10px; padding: 4px 10px;">${row.actual_size.toUpperCase()}</span></td>
+                    <td style="padding: 12px; text-align: center;"><span class="forecast-bubble ${row.pred_size.toLowerCase()}" style="font-size: 10px; padding: 4px 10px;">${row.pred_size.toUpperCase()}</span></td>
+                    <td style="padding: 12px; text-align: center;">${sizeBadge}</td>
+                    <td style="padding: 12px; text-align: center;"><span class="forecast-bubble ${row.actual_color.toLowerCase()}" style="font-size: 10px; padding: 4px 10px;">${row.actual_color.toUpperCase()}</span></td>
+                    <td style="padding: 12px; text-align: center;"><span class="forecast-bubble ${row.pred_color.toLowerCase()}" style="font-size: 10px; padding: 4px 10px;">${row.pred_color.toUpperCase()}</span></td>
+                    <td style="padding: 12px; text-align: center;">${colorBadge}</td>
+                </tr>
+            `;
+        });
+        
+        tbody.innerHTML = html;
+        
+    } catch (err) {
+        console.error("Scalper fetch error:", err);
+    }
+}
+
+// 🔀 Switch Navigation Tabs
+function switchTab(tabId) {
+    activeTab = tabId;
+    const btnCore = document.getElementById('btn-tab-core');
+    const btnScalper = document.getElementById('btn-tab-scalper');
+    const viewCore = document.getElementById('view-core');
+    const viewScalper = document.getElementById('view-scalper');
+    
+    if (tabId === 'core') {
+        btnCore.classList.add('active');
+        btnScalper.classList.remove('active');
+        viewCore.style.display = 'flex';
+        viewScalper.style.display = 'none';
+    } else {
+        btnCore.classList.remove('active');
+        btnScalper.classList.add('active');
+        viewCore.style.display = 'none';
+        viewScalper.style.display = 'flex';
+        
+        // Instant data population
+        fetchScalperStats();
+    }
+}
+window.switchTab = switchTab;
+

@@ -348,3 +348,82 @@ def generate_forecast():
             "heu_size_confidence": 50.0,
             "heu_color_confidence": 50.0
         }
+
+def predict_scalper_10(recent_rounds):
+    """
+    10-Period Short-Term Scalper Engine:
+    Performs a high-speed micro-trend vector analysis strictly using the last 10 rounds.
+    """
+    try:
+        # Convert list of recent dicts to DataFrame sorted oldest to newest
+        df = pd.DataFrame(recent_rounds).tail(10)
+        df = df.sort_values("period_id", ascending=True).reset_index(drop=True)
+        
+        if len(df) < 8:
+            return {
+                "size": "WAIT", "color": "TRAINING",
+                "size_confidence": 50.0, "color_confidence": 50.0
+            }
+            
+        # Encode values
+        df['size_encoded'] = df['size'].apply(lambda x: 1 if str(x).strip().lower() == 'big' else 0)
+        df['color_encoded'] = df['color'].apply(lambda x: 1 if 'red' in str(x).strip().lower() else 0)
+        
+        # 1. Micro-Trend Vector (Size & Color velocity)
+        size_mean = df['size_encoded'].mean()
+        color_mean = df['color_encoded'].mean()
+        
+        # 2. Pattern Transition (Last 2 rounds check)
+        size_alternating = False
+        if len(df) >= 4:
+            # Alternating check: size[i] != size[i-1] for last 3 steps
+            diffs = df['size_encoded'].diff().dropna().tail(3)
+            if all(d != 0 for d in diffs):
+                size_alternating = True
+                
+        # 3. Predict Size
+        latest_size = df['size_encoded'].iloc[-1]
+        if size_alternating:
+            # If alternating, predict the opposite!
+            pred_size_val = 1 - latest_size
+            size_conf = 72.5
+        else:
+            # Otherwise, follow the dominant local trend
+            pred_size_val = 1 if size_mean >= 0.5 else 0
+            size_conf = 50.0 + abs(size_mean - 0.5) * 60.0
+            
+        # 4. Predict Color
+        color_alternating = False
+        if len(df) >= 4:
+            diffs_c = df['color_encoded'].diff().dropna().tail(3)
+            if all(d != 0 for d in diffs_c):
+                color_alternating = True
+                
+        latest_color = df['color_encoded'].iloc[-1]
+        if color_alternating:
+            pred_color_val = 1 - latest_color
+            color_conf = 70.8
+        else:
+            pred_color_val = 1 if color_mean >= 0.5 else 0
+            color_conf = 50.0 + abs(color_mean - 0.5) * 58.0
+            
+        pred_size = "Big" if pred_size_val == 1 else "Small"
+        pred_color = "Red" if pred_color_val == 1 else "Green"
+        
+        # Bounded confidences
+        size_conf = min(99.9, max(52.0, size_conf + random.uniform(-1.0, 1.0)))
+        color_conf = min(99.9, max(52.0, color_conf + random.uniform(-1.0, 1.0)))
+        
+        return {
+            "size": pred_size,
+            "color": pred_color,
+            "size_confidence": round(size_conf, 1),
+            "color_confidence": round(color_conf, 1)
+        }
+    except Exception as e:
+        print(f"[Scalper Error] predict_scalper_10 error: {e}")
+        return {
+            "size": "WAIT", "color": "TRAINING",
+            "size_confidence": 50.0, "color_confidence": 50.0
+        }
+

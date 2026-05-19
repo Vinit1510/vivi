@@ -9,6 +9,58 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet" href="style.css">
+    
+    <!-- Tab styling injected safely to prevent layout regression -->
+    <style>
+        .tab-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.6);
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 800;
+            font-family: 'Space Grotesk', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            letter-spacing: 0.5px;
+        }
+        .tab-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        .tab-btn.active {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(59, 130, 246, 0.25));
+            border-color: #a855f7;
+            color: #fff;
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.2);
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-align: center;
+        }
+        .badge.win {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            box-shadow: 0 0 8px rgba(34, 197, 94, 0.2);
+        }
+        .badge.loss {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+    </style>
 </head>
 <body class="vivi-dark-theme">
     <!-- Dynamic particle background container -->
@@ -25,6 +77,16 @@
             </div>
         </div>
         
+        <!-- Premium Tabs Navigation -->
+        <div class="nav-tabs" style="display: flex; gap: 10px; margin: 0 auto;">
+            <button class="tab-btn active" id="btn-tab-core" onclick="switchTab('core')">
+                <span class="material-symbols-rounded">dashboard</span> CORE ANALYTICS
+            </button>
+            <button class="tab-btn" id="btn-tab-scalper" onclick="switchTab('scalper')">
+                <span class="material-symbols-rounded">speed</span> 10-PERIOD SCALPER
+            </button>
+        </div>
+        
         <div class="nav-controls">
             <div class="live-clock" id="clock">00:00:00</div>
         </div>
@@ -32,167 +94,267 @@
 
     <main class="app-container">
         
-        <!-- Top Statistics Hub -->
-        <section class="stats-grid">
-            <div class="stat-card glass tilt-effect">
-                <div class="stat-icon color-cyan">
-                    <span class="material-symbols-rounded">database</span>
-                </div>
-                <div class="stat-details">
-                    <p class="stat-label">Brain Database</p>
-                    <h3 class="stat-value" id="count-rounds">0</h3>
-                    <p class="stat-sub">Total Rounds Ingested</p>
-                </div>
-            </div>
-            <div class="stat-card glass tilt-effect">
-                <div class="stat-icon color-purple">
-                    <span class="material-symbols-rounded">query_stats</span>
-                </div>
-                <div class="stat-details">
-                    <p class="stat-label">Size Accuracy</p>
-                    <h3 class="stat-value" id="acc-size">0%</h3>
-                    <div class="mini-progress"><div class="fill" id="fill-size" style="width: 0%;"></div></div>
-                </div>
-            </div>
-            <div class="stat-card glass tilt-effect">
-                <div class="stat-icon color-pink">
-                    <span class="material-symbols-rounded">palette</span>
-                </div>
-                <div class="stat-details">
-                    <p class="stat-label">Color Accuracy</p>
-                    <h3 class="stat-value" id="acc-color">0%</h3>
-                    <div class="mini-progress"><div class="fill" id="fill-color" style="width: 0%;"></div></div>
-                </div>
-            </div>
-        </section>
-
-        <!-- DASHBOARD HERO GRID (60:40 Side-by-Side Layout) -->
-        <section class="dashboard-hero-grid">
+        <!-- VIEW 1: CORE ANALYTICS (DASHBOARD) -->
+        <div id="view-core" class="tab-view" style="display: flex; flex-direction: column; gap: 30px; width: 100%;">
             
-            <!-- LEFT COMPONENT: LIVE PREDICTIONS (60%) -->
-            <div class="prediction-box glass neon-border">
-                <div class="pred-header">
-                    <div class="live-tag"><span class="dot online pulse"></span> NEXT ROUND ANALYSIS</div>
-                    <div class="pred-period" id="pred-period-id">...LOADING</div>
+            <!-- Top Statistics Hub -->
+            <section class="stats-grid">
+                <div class="stat-card glass tilt-effect">
+                    <div class="stat-icon color-cyan">
+                        <span class="material-symbols-rounded">database</span>
+                    </div>
+                    <div class="stat-details">
+                        <p class="stat-label">Brain Database</p>
+                        <h3 class="stat-value" id="count-rounds">0</h3>
+                        <p class="stat-sub">Total Rounds Ingested</p>
+                    </div>
+                </div>
+                <div class="stat-card glass tilt-effect">
+                    <div class="stat-icon color-purple">
+                        <span class="material-symbols-rounded">query_stats</span>
+                    </div>
+                    <div class="stat-details">
+                        <p class="stat-label">Size Accuracy</p>
+                        <h3 class="stat-value" id="acc-size">0%</h3>
+                        <div class="mini-progress"><div class="fill" id="fill-size" style="width: 0%;"></div></div>
+                    </div>
+                </div>
+                <div class="stat-card glass tilt-effect">
+                    <div class="stat-icon color-pink">
+                        <span class="material-symbols-rounded">palette</span>
+                    </div>
+                    <div class="stat-details">
+                        <p class="stat-label">Color Accuracy</p>
+                        <h3 class="stat-value" id="acc-color">0%</h3>
+                        <div class="mini-progress"><div class="fill" id="fill-color" style="width: 0%;"></div></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- DASHBOARD HERO GRID (60:40 Side-by-Side Layout) -->
+            <section class="dashboard-hero-grid">
+                
+                <!-- LEFT COMPONENT: LIVE PREDICTIONS (60%) -->
+                <div class="prediction-box glass neon-border">
+                    <div class="pred-header">
+                        <div class="live-tag"><span class="dot online pulse"></span> NEXT ROUND ANALYSIS</div>
+                        <div class="pred-period" id="pred-period-id">...LOADING</div>
+                    </div>
+                    
+                    <div class="pred-body" style="display: flex; flex-direction: column; gap: 20px;">
+                        <!-- BLOCK 1: AI MACHINE LEARNING ENGINE -->
+                        <div class="pred-segment">
+                            <span class="seg-label" style="display: flex; align-items: center; gap: 8px; color: #c084fc; font-weight: 800;">
+                                <span class="dot online pulse" style="background-color: #a855f7; box-shadow: 0 0 10px #a855f7;"></span> 🧠 AI MACHINE LEARNING MODEL
+                            </span>
+                            <div class="pred-value-pair" style="margin-top: 8px;">
+                                <div class="forecast-bubble" id="forecast-size-ml">WAIT</div>
+                                <div class="forecast-bubble" id="forecast-color-ml">CALCULATING</div>
+                            </div>
+                            <div class="dual-confidences" style="margin-top: 12px; gap: 8px;">
+                                <div class="pred-confidence">
+                                    <div class="conf-bar" style="height: 6px;"><div class="conf-fill" id="conf-bar-size-ml" style="width: 0%; background: linear-gradient(90deg, #a855f7, #c084fc);"></div></div>
+                                    <div class="conf-text" id="conf-pct-size-ml" style="font-size: 10px; color: #e9d5ff; font-weight: 700; margin-top: 2px;">0% MATCH</div>
+                                </div>
+                                <div class="pred-confidence">
+                                    <div class="conf-bar" style="height: 6px;"><div class="conf-fill" id="conf-bar-color-ml" style="width: 0%; background: linear-gradient(90deg, #a855f7, #c084fc);"></div></div>
+                                    <div class="conf-text" id="conf-pct-color-ml" style="font-size: 10px; color: #e9d5ff; font-weight: 700; margin-top: 2px;">0% MATCH</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="width: 100%; height: 1px; background: rgba(255,255,255,0.08); margin: 5px 0;"></div>
+                        
+                        <!-- BLOCK 2: MATHEMATICAL HEURISTIC ENGINE -->
+                        <div class="pred-segment">
+                            <span class="seg-label" style="display: flex; align-items: center; gap: 8px; color: #60a5fa; font-weight: 800;">
+                                <span class="dot online pulse" style="background-color: #3b82f6; box-shadow: 0 0 10px #3b82f6;"></span> 🧮 MATHEMATICAL HEURISTIC MODEL
+                            </span>
+                            <div class="pred-value-pair" style="margin-top: 8px;">
+                                <div class="forecast-bubble" id="forecast-size-heu">WAIT</div>
+                                <div class="forecast-bubble" id="forecast-color-heu">CALCULATING</div>
+                            </div>
+                            <div class="dual-confidences" style="margin-top: 12px; gap: 8px;">
+                                <div class="pred-confidence">
+                                    <div class="conf-bar" style="height: 6px;"><div class="conf-fill" id="conf-bar-size-heu" style="width: 0%; background: linear-gradient(90deg, #3b82f6, #60a5fa);"></div></div>
+                                    <div class="conf-text" id="conf-pct-size-heu" style="font-size: 10px; color: #dbeafe; font-weight: 700; margin-top: 2px;">0% MATCH</div>
+                                </div>
+                                <div class="pred-confidence">
+                                    <div class="conf-bar" style="height: 6px;"><div class="conf-fill" id="conf-bar-color-heu" style="width: 0%; background: linear-gradient(90deg, #3b82f6, #60a5fa);"></div></div>
+                                    <div class="conf-text" id="conf-pct-color-heu" style="font-size: 10px; color: #dbeafe; font-weight: 700; margin-top: 2px;">0% MATCH</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT COMPONENT: CONTROL TOGGLE (40%) -->
+                <div class="glass control-panel">
+                    <h2>Prediction Autonomy</h2>
+                    <p class="helper-text">System constantly trains. Activate below to compute real-time next steps.</p>
+                    
+                    <button id="btn-toggle-prediction" class="mega-btn is-stopped">
+                        <span class="material-symbols-rounded">play_arrow</span>
+                        <span id="toggle-text">START PREDICTION</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Data Explorer Section (Filtering) -->
+            <section class="history-section">
+                <div class="section-header">
+                    <h2><span class="material-symbols-rounded">history</span> Historical Timeline</h2>
+                    <div class="date-selector-container" id="date-chips">
+                        <!-- Populated via JS -->
+                        <span class="loading-spinner"></span>
+                    </div>
+                </div>
+
+                <!-- Ultra-Widescreen Symmetrical Analytical Grid -->
+                <div class="timeline-dashboard-split">
+                    
+                    <!-- COLUMN 1 (FAR LEFT): Main Timeline Accordion -->
+                    <div class="accordion-container" id="history-accordion">
+                        <div class="empty-state">
+                            <span class="material-symbols-rounded icon-xl">event_busy</span>
+                            <p>Select a valid date above to view round breakdowns.</p>
+                        </div>
+                    </div>
+
+                    <!-- COLUMN 2 (CENTER): 10-Min Stats Analyzer -->
+                    <aside class="glass sidebar-widget" id="sidebar-10min">
+                        <div class="sidebar-header">
+                            <span class="material-symbols-rounded icon-cyan">timer</span>
+                            <h3>10-MIN MICRO WIN RATES</h3>
+                        </div>
+                        
+                        <div class="sidebar-empty" id="empty-10min">
+                            <span class="material-symbols-rounded icon-muted">monitoring</span>
+                            <p>Click an hour on the timeline to unlock micro-trends.</p>
+                        </div>
+                        
+                        <div class="sidebar-content" id="content-10min" style="display:none;">
+                            <!-- Rendered dynamically -->
+                        </div>
+                    </aside>
+
+                    <!-- COLUMN 3 (FAR RIGHT): Confidence Accuracy Calibration -->
+                    <aside class="glass sidebar-widget" id="sidebar-conf">
+                        <div class="sidebar-header">
+                            <span class="material-symbols-rounded icon-pink">analytics</span>
+                            <h3>CALIBRATION ACCURACY</h3>
+                        </div>
+                        
+                        <div class="sidebar-empty" id="empty-conf">
+                            <span class="material-symbols-rounded icon-muted">query_stats</span>
+                            <p>Analyze precision mapped across engine confidence levels.</p>
+                        </div>
+                        
+                        <div class="sidebar-content" id="content-conf" style="display:none;">
+                            <!-- Rendered dynamically -->
+                        </div>
+                    </aside>
+                </div>
+            </section>
+        </div>
+
+        <!-- VIEW 2: 10-PERIOD SCALPER (NEW TAB) -->
+        <div id="view-scalper" class="tab-view" style="display: none; flex-direction: column; gap: 30px; width: 100%;">
+            <section class="dashboard-hero-grid" style="grid-template-columns: 1fr 1.2fr; gap: 30px;">
+                
+                <!-- LEFT CARD: LIVE SCALPER PREDICTIONS -->
+                <div class="prediction-box glass neon-border" style="border-color: #06b6d4; box-shadow: 0 0 20px rgba(6, 182, 212, 0.1);">
+                    <div class="pred-header" style="background: rgba(6, 182, 212, 0.05); border-bottom: 1px solid rgba(6, 182, 212, 0.15);">
+                        <div class="live-tag" style="color: #22d3ee;"><span class="dot online pulse" style="background-color: #06b6d4; box-shadow: 0 0 10px #06b6d4;"></span> SCALPER NEXT FORECAST</div>
+                        <div class="pred-period" id="scalper-period-id" style="color: #e2e8f0;">...LOADING</div>
+                    </div>
+                    
+                    <div class="pred-body" style="padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+                        <div class="pred-segment">
+                            <span class="seg-label" style="color: #67e8f9; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                                <span class="material-symbols-rounded" style="color: #06b6d4; font-size: 16px;">trending_up</span> 10-PERIOD SCALPER FORECAST
+                            </span>
+                            <div class="pred-value-pair" style="margin-top: 12px; display: flex; gap: 15px;">
+                                <div class="forecast-bubble" id="scalper-forecast-size">WAIT</div>
+                                <div class="forecast-bubble" id="scalper-forecast-color">CALCULATING</div>
+                            </div>
+                            
+                            <div class="dual-confidences" style="margin-top: 20px; display: flex; flex-direction: column; gap: 12px;">
+                                <div class="pred-confidence">
+                                    <div class="conf-label" style="font-size: 11px; color: #94a3b8; font-weight: 600; margin-bottom: 4px;">SIZE CONVICTION</div>
+                                    <div class="conf-bar" style="height: 8px; background: rgba(255,255,255,0.05);"><div class="conf-fill" id="scalper-conf-size" style="width: 0%; background: linear-gradient(90deg, #06b6d4, #22d3ee); box-shadow: 0 0 8px rgba(6, 182, 212, 0.4);"></div></div>
+                                    <div class="conf-text" id="scalper-conf-pct-size" style="font-size: 10px; color: #22d3ee; font-weight: 700; margin-top: 4px;">0% MATCH</div>
+                                </div>
+                                <div class="pred-confidence">
+                                    <div class="conf-label" style="font-size: 11px; color: #94a3b8; font-weight: 600; margin-bottom: 4px;">COLOR CONVICTION</div>
+                                    <div class="conf-bar" style="height: 8px; background: rgba(255,255,255,0.05);"><div class="conf-fill" id="scalper-conf-color" style="width: 0%; background: linear-gradient(90deg, #06b6d4, #22d3ee); box-shadow: 0 0 8px rgba(6, 182, 212, 0.4);"></div></div>
+                                    <div class="conf-text" id="scalper-conf-pct-color" style="font-size: 10px; color: #22d3ee; font-weight: 700; margin-top: 4px;">0% MATCH</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
-                <div class="pred-body" style="display: flex; flex-direction: column; gap: 20px;">
-                    <!-- BLOCK 1: AI MACHINE LEARNING ENGINE -->
-                    <div class="pred-segment">
-                        <span class="seg-label" style="display: flex; align-items: center; gap: 8px; color: #c084fc; font-weight: 800;">
-                            <span class="dot online pulse" style="background-color: #a855f7; box-shadow: 0 0 10px #a855f7;"></span> 🧠 AI MACHINE LEARNING MODEL
-                        </span>
-                        <div class="pred-value-pair" style="margin-top: 8px;">
-                            <div class="forecast-bubble" id="forecast-size-ml">WAIT</div>
-                            <div class="forecast-bubble" id="forecast-color-ml">CALCULATING</div>
-                        </div>
-                        <div class="dual-confidences" style="margin-top: 12px; gap: 8px;">
-                            <div class="pred-confidence">
-                                <div class="conf-bar" style="height: 6px;"><div class="conf-fill" id="conf-bar-size-ml" style="width: 0%; background: linear-gradient(90deg, #a855f7, #c084fc);"></div></div>
-                                <div class="conf-text" id="conf-pct-size-ml" style="font-size: 10px; color: #e9d5ff; font-weight: 700; margin-top: 2px;">0% MATCH</div>
-                            </div>
-                            <div class="pred-confidence">
-                                <div class="conf-bar" style="height: 6px;"><div class="conf-fill" id="conf-bar-color-ml" style="width: 0%; background: linear-gradient(90deg, #a855f7, #c084fc);"></div></div>
-                                <div class="conf-text" id="conf-pct-color-ml" style="font-size: 10px; color: #e9d5ff; font-weight: 700; margin-top: 2px;">0% MATCH</div>
+                <!-- RIGHT CARD: STRATEGY BRIEF -->
+                <div class="prediction-box glass neon-border" style="border-color: rgba(255,255,255,0.08); padding: 24px;">
+                    <h2 style="font-family: 'Space Grotesk', sans-serif; color: #fff; font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                        <span class="material-symbols-rounded" style="color: #06b6d4;">psychology</span> Scalper Strategy Protocol
+                    </h2>
+                    <p style="color: #94a3b8; font-size: 13px; line-height: 1.6; margin-bottom: 15px;">
+                        The 10-Period Scalper utilizes an ultra-reactive micro-trend transition algorithm. Unlike the core Random Forest engine which parses massive structural history, this scalper operates under severe sequence memory constraints (the last 10 draws).
+                    </p>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <div style="display: flex; align-items: flex-start; gap: 10px; background: rgba(6, 182, 212, 0.05); padding: 12px; border-radius: 8px; border-left: 3px solid #06b6d4;">
+                            <span class="material-symbols-rounded" style="color: #22d3ee; font-size: 18px; margin-top: 2px;">loop</span>
+                            <div>
+                                <h4 style="color: #e2e8f0; font-size: 12px; font-weight: 700;">Alternation Checker</h4>
+                                <p style="color: #94a3b8; font-size: 11px; margin-top: 2px;">If Wingo transitions back-and-forth for 3 consecutive rounds, the scalper shifts to anti-streak betting, predicting a reversal.</p>
                             </div>
                         </div>
-                    </div>
-                    
-                    <div style="width: 100%; height: 1px; background: rgba(255,255,255,0.08); margin: 5px 0;"></div>
-                    
-                    <!-- BLOCK 2: MATHEMATICAL HEURISTIC ENGINE -->
-                    <div class="pred-segment">
-                        <span class="seg-label" style="display: flex; align-items: center; gap: 8px; color: #60a5fa; font-weight: 800;">
-                            <span class="dot online pulse" style="background-color: #3b82f6; box-shadow: 0 0 10px #3b82f6;"></span> 🧮 MATHEMATICAL HEURISTIC MODEL
-                        </span>
-                        <div class="pred-value-pair" style="margin-top: 8px;">
-                            <div class="forecast-bubble" id="forecast-size-heu">WAIT</div>
-                            <div class="forecast-bubble" id="forecast-color-heu">CALCULATING</div>
-                        </div>
-                        <div class="dual-confidences" style="margin-top: 12px; gap: 8px;">
-                            <div class="pred-confidence">
-                                <div class="conf-bar" style="height: 6px;"><div class="conf-fill" id="conf-bar-size-heu" style="width: 0%; background: linear-gradient(90deg, #3b82f6, #60a5fa);"></div></div>
-                                <div class="conf-text" id="conf-pct-size-heu" style="font-size: 10px; color: #dbeafe; font-weight: 700; margin-top: 2px;">0% MATCH</div>
-                            </div>
-                            <div class="pred-confidence">
-                                <div class="conf-bar" style="height: 6px;"><div class="conf-fill" id="conf-bar-color-heu" style="width: 0%; background: linear-gradient(90deg, #3b82f6, #60a5fa);"></div></div>
-                                <div class="conf-text" id="conf-pct-color-heu" style="font-size: 10px; color: #dbeafe; font-weight: 700; margin-top: 2px;">0% MATCH</div>
+                        <div style="display: flex; align-items: flex-start; gap: 10px; background: rgba(168, 85, 247, 0.05); padding: 12px; border-radius: 8px; border-left: 3px solid #a855f7;">
+                            <span class="material-symbols-rounded" style="color: #c084fc; font-size: 18px; margin-top: 2px;">bolt</span>
+                            <div>
+                                <h4 style="color: #e2e8f0; font-size: 12px; font-weight: 700;">Local Velocity Mapping</h4>
+                                <p style="color: #94a3b8; font-size: 11px; margin-top: 2px;">Measures micro-momentum ratio (e.g. 70% Small concentration) to align high-speed trades with the immediate local force.</p>
                             </div>
                         </div>
                     </div>
                 </div>
-
-            </div>
-
-            <!-- RIGHT COMPONENT: CONTROL TOGGLE (40%) -->
-            <div class="glass control-panel">
-                <h2>Prediction Autonomy</h2>
-                <p class="helper-text">System constantly trains. Activate below to compute real-time next steps.</p>
+            </section>
+            
+            <!-- FULL-WIDTH HISTORICAL TRACKER TABLE -->
+            <section class="history-section glass" style="padding: 24px; border-radius: 20px;">
+                <div class="section-header" style="margin-bottom: 20px;">
+                    <h2 style="font-size: 18px;"><span class="material-symbols-rounded" style="color: #06b6d4;">query_stats</span> 10-Period Scalper Real-Time Performance</h2>
+                    <p style="color: #64748b; font-size: 12px; margin-top: 4px;">Dynamic sliding window backtests displaying exactly what the scalper forecast vs the actual outcomes.</p>
+                </div>
                 
-                <button id="btn-toggle-prediction" class="mega-btn is-stopped">
-                    <span class="material-symbols-rounded">play_arrow</span>
-                    <span id="toggle-text">START PREDICTION</span>
-                </button>
-            </div>
-        </section>
-
-        <!-- Data Explorer Section (Filtering) -->
-        <section class="history-section">
-            <div class="section-header">
-                <h2><span class="material-symbols-rounded">history</span> Historical Timeline</h2>
-                <div class="date-selector-container" id="date-chips">
-                    <!-- Populated via JS -->
-                    <span class="loading-spinner"></span>
+                <div style="width: 100%; overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left;" class="history-table">
+                        <thead>
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px;">
+                                <th style="padding: 12px; font-size: 11px; font-weight: 700; color: #94a3b8; width: 12%;">PERIOD</th>
+                                <th style="padding: 12px; font-size: 11px; font-weight: 700; color: #94a3b8; width: 8%;">NUMBER</th>
+                                <th style="padding: 12px; font-size: 11px; font-weight: 700; color: #94a3b8; text-align: center; width: 16%;">ACTUAL SIZE</th>
+                                <th style="padding: 12px; font-size: 11px; font-weight: 700; color: #94a3b8; text-align: center; width: 16%;">SCALPER PREDICT</th>
+                                <th style="padding: 12px; font-size: 11px; font-weight: 700; color: #94a3b8; text-align: center; width: 12%;">SIZE RESULT</th>
+                                <th style="padding: 12px; font-size: 11px; font-weight: 700; color: #94a3b8; text-align: center; width: 16%;">ACTUAL COLOR</th>
+                                <th style="padding: 12px; font-size: 11px; font-weight: 700; color: #94a3b8; text-align: center; width: 16%;">SCALPER PREDICT</th>
+                                <th style="padding: 12px; font-size: 11px; font-weight: 700; color: #94a3b8; text-align: center; width: 12%;">COLOR RESULT</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scalper-table-body">
+                            <tr>
+                                <td colspan="8" style="text-align: center; padding: 40px; color: #64748b;">
+                                    <span class="loading-spinner" style="display: inline-block;"></span>
+                                    <p style="margin-top: 10px;">Computing 10-period rolling vectors...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
-            </div>
-
-            <!-- Ultra-Widescreen Symmetrical Analytical Grid -->
-            <div class="timeline-dashboard-split">
-                
-                <!-- COLUMN 1 (FAR LEFT): Main Timeline Accordion -->
-                <div class="accordion-container" id="history-accordion">
-                    <div class="empty-state">
-                        <span class="material-symbols-rounded icon-xl">event_busy</span>
-                        <p>Select a valid date above to view round breakdowns.</p>
-                    </div>
-                </div>
-
-                <!-- COLUMN 2 (CENTER): 10-Min Stats Analyzer -->
-                <aside class="glass sidebar-widget" id="sidebar-10min">
-                    <div class="sidebar-header">
-                        <span class="material-symbols-rounded icon-cyan">timer</span>
-                        <h3>10-MIN MICRO WIN RATES</h3>
-                    </div>
-                    
-                    <div class="sidebar-empty" id="empty-10min">
-                        <span class="material-symbols-rounded icon-muted">monitoring</span>
-                        <p>Click an hour on the timeline to unlock micro-trends.</p>
-                    </div>
-                    
-                    <div class="sidebar-content" id="content-10min" style="display:none;">
-                        <!-- Rendered dynamically -->
-                    </div>
-                </aside>
-
-                <!-- COLUMN 3 (FAR RIGHT): Confidence Accuracy Calibration -->
-                <aside class="glass sidebar-widget" id="sidebar-conf">
-                    <div class="sidebar-header">
-                        <span class="material-symbols-rounded icon-pink">analytics</span>
-                        <h3>CALIBRATION ACCURACY</h3>
-                    </div>
-                    
-                    <div class="sidebar-empty" id="empty-conf">
-                        <span class="material-symbols-rounded icon-muted">query_stats</span>
-                        <p>Analyze precision mapped across engine confidence levels.</p>
-                    </div>
-                    
-                    <div class="sidebar-content" id="content-conf" style="display:none;">
-                        <!-- Rendered dynamically -->
-                    </div>
-                </aside>
-
-            </div>
-        </section>
+            </section>
+        </div>
 
     </main>
 

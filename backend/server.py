@@ -160,7 +160,61 @@ def toggle_prediction(status: bool):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/scalper-stats")
+def get_scalper_stats():
+    """Calculates live 10-Period Scalper forecasts and backtests on the last 15 rounds."""
+    try:
+        # Fetch latest 26 rounds to compute sliding window history of 15 rounds
+        all_data = db.get_latest_rounds(26)
+        if not all_data or len(all_data) < 12:
+            return {"next_forecast": None, "history": []}
+            
+        # 1. Compute next forthcoming round forecast
+        next_forecast = brain.predict_scalper_10(all_data[:10])
+        
+        # 2. Backtest last 15 rounds using preceding 10-period sliding window
+        history_list = []
+        limit = min(15, len(all_data) - 11)
+        for i in range(limit):
+            target_round = all_data[i]
+            # Preceding 10 rounds relative to target_round
+            preceding_10 = all_data[i+1 : i+11]
+            
+            # Predict
+            pred = brain.predict_scalper_10(preceding_10)
+            
+            # Compare actual outcomes
+            actual_size = target_round.get("size")
+            actual_color = target_round.get("color")
+            
+            pred_size = pred.get("size")
+            pred_color = pred.get("color")
+            
+            size_result = "WIN" if str(actual_size).strip().lower() == str(pred_size).strip().lower() else "LOSS"
+            color_result = "WIN" if str(actual_color).strip().lower() == str(pred_color).strip().lower() else "LOSS"
+            
+            history_list.append({
+                "period_id": target_round.get("period_id"),
+                "number": target_round.get("number"),
+                "actual_size": actual_size,
+                "pred_size": pred_size,
+                "size_result": size_result,
+                "actual_color": actual_color,
+                "pred_color": pred_color,
+                "color_result": color_result,
+                "size_confidence": pred.get("size_confidence"),
+                "color_confidence": pred.get("color_confidence")
+            })
+            
+        return {
+            "next_forecast": next_forecast,
+            "history": history_list
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Mount entire frontend folder to serve static assets (style.css, app.js) directly at root
+
 app.mount("/", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "..", "frontend")), name="frontend")
 
 if __name__ == "__main__":
