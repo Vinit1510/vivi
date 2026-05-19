@@ -573,10 +573,31 @@ async function fetchScalperStats() {
         
         tbody.innerHTML = html;
         
+        // 3. Compute and update Scalper Accuracy stats dynamically (mirroring the main dashboard)
+        const totalWins = data.history.length;
+        const sizeWins = data.history.filter(row => row.size_result === 'WIN').length;
+        const colorWins = data.history.filter(row => row.color_result === 'WIN').length;
+        
+        const sizePct = totalWins > 0 ? Math.round((sizeWins / totalWins) * 100) : 0;
+        const colorPct = totalWins > 0 ? Math.round((colorWins / totalWins) * 100) : 0;
+        
+        const countScalperRoundsEl = document.getElementById('count-scalper-rounds');
+        const accScalperSizeEl = document.getElementById('acc-scalper-size');
+        const fillScalperSizeEl = document.getElementById('fill-scalper-size');
+        const accScalperColorEl = document.getElementById('acc-scalper-color');
+        const fillScalperColorEl = document.getElementById('fill-scalper-color');
+        
+        if (countScalperRoundsEl) countScalperRoundsEl.textContent = totalWins.toString();
+        if (accScalperSizeEl) accScalperSizeEl.textContent = `${sizePct}%`;
+        if (fillScalperSizeEl) fillScalperSizeEl.style.width = `${sizePct}%`;
+        if (accScalperColorEl) accScalperColorEl.textContent = `${colorPct}%`;
+        if (fillScalperColorEl) fillScalperColorEl.style.width = `${colorPct}%`;
+        
     } catch (err) {
         console.error("Scalper fetch error:", err);
     }
 }
+
 
 // 🔀 Switch Navigation Tabs
 function switchTab(tabId) {
