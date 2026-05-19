@@ -92,10 +92,29 @@ def get_dashboard():
     return FileResponse(frontend_path)
 
 import brain
+import time
+
+# ==========================================================================
+# TRANSIENT THREAD-SAFE IN-MEMORY CACHE FOR NEON DB BANDWIDTH OPTIMIZATION
+# ==========================================================================
+class CacheStore:
+    def __init__(self):
+        self.dashboard_stats = None
+        self.stats_time = 0
+        self.available_dates = None
+        self.dates_time = 0
+        self.history_cache = {}  # target_date -> (timestamp, data)
+
+cache = CacheStore()
 
 @app.get("/api/dashboard-stats")
 def get_dashboard_stats():
-    """Provides top-level overview stats and immediate next forecast."""
+    """Provides top-level overview stats and immediate next forecast with in-memory caching."""
+    now = time.time()
+    # Cache stats for 4 seconds (effectively bypasses 2-second user request storms)
+    if cache.dashboard_stats and (now - cache.stats_time < 4.0):
+        return cache.dashboard_stats
+        
     try:
         total_rounds_res = execute_one("SELECT COUNT(*) FROM rounds;")
         total_rounds = total_rounds_res[0] if total_rounds_res else 0
@@ -140,19 +159,26 @@ def get_dashboard_stats():
         
         stats = acc_res[0] if (acc_res and acc_res[0]["total_preds"] is not None) else {"size_wins":0, "color_wins":0, "total_preds":0}
         
-        return {
+        res_data = {
             "total_ingested": total_rounds,
             "prediction_enabled": is_active,
             "next_period": str(next_id),
             "forecast": forecast,
             "stats": stats
         }
+        cache.dashboard_stats = res_data
+        cache.stats_time = now
+        return res_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/available-dates")
 def get_available_dates():
-    """Returns sorted list of dates with data, casted to IST."""
+    """Returns sorted list of dates with data, casted to IST with 30-sec cache buffer."""
+    now = time.time()
+    if cache.available_dates and (now - cache.dates_time < 30.0):
+        return cache.available_dates
+        
     try:
         res = fetch_all("""
             SELECT DISTINCT DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Kolkata')::date as valid_date 
@@ -160,13 +186,21 @@ def get_available_dates():
             ORDER BY valid_date DESC 
             LIMIT 30;
         """)
-        return [str(r["valid_date"]) for r in res]
+        res_dates = [str(r["valid_date"]) for r in res]
+        cache.available_dates = res_dates
+        cache.dates_time = now
+        return res_dates
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/history/date/{target_date}")
 def get_date_details(target_date: str):
-    """Retrieves nested hierarchical JSON grouped by Indian Time hours including outcome tracking."""
+    """Retrieves nested hierarchical JSON grouped by Indian Time hours including outcome tracking with 8-sec cache."""
+    now = time.time()
+    cached_entry = cache.history_cache.get(target_date)
+    if cached_entry and (now - cached_entry[0] < 8.0):
+        return cached_entry[1]
+        
     try:
         query = """
             WITH ist_rounds AS (
@@ -206,6 +240,7 @@ def get_date_details(target_date: str):
             ORDER BY hour DESC;
         """
         results = fetch_all(query, (target_date,))
+        cache.history_cache[target_date] = (now, results)
         return results
     except Exception as e:
          raise HTTPException(status_code=500, detail=str(e))
@@ -219,6 +254,10 @@ def toggle_prediction(status: bool):
             VALUES ('prediction_active', %s, CURRENT_TIMESTAMP)
             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP;
         """, (val_str,))
+        
+        # Force cache invalidation immediately on state change!
+        cache.dashboard_stats = None
+        
         return {"success": True, "prediction_active": status}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -133,18 +133,30 @@ def start_miner_loop():
     print("🚀 Initializing Vivi 24/7 Miner...")
     db_mgr.connect()
     
-    last_logged = 0
+    last_processed_period_id = None
     
     while True:
         try:
             records = fetch_data()
-            inserted = process_records(records)
-            
-            if inserted > 0:
-                print(f"📦 Data Ingested: Added {inserted} new rounds from source.")
-            
-            # Ignite automatic prediction engine verification
-            verify_active_prediction()
+            if records:
+                latest_period = int(records[0].get("issueNumber"))
+                
+                # LAZY MINER BYPASS: If the latest drawn period has not changed, bypass database completely!
+                if latest_period == last_processed_period_id:
+                    time.sleep(INTERVAL)
+                    continue
+                
+                inserted = process_records(records)
+                if inserted > 0:
+                    print(f"📦 Data Ingested: Added {inserted} new rounds from source.")
+                
+                # Check predictions ONLY when a new round is actually logged
+                verify_active_prediction()
+                
+                last_processed_period_id = latest_period
+            else:
+                time.sleep(INTERVAL)
+                continue
                 
             time.sleep(INTERVAL)
             
