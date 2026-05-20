@@ -116,9 +116,12 @@ async function fetchStats() {
         }
 
         // SILENT AUTO-REFRESH TRIGGER: If round count increments, push seamless update to UI!
-        if (dataGrown && activeDateString) {
-            console.log("🔄 New data ingestion detected. Performing seamless timeline hot-swap...");
-            loadTimeline(activeDateString, true);
+        if (dataGrown) {
+            fetchHourlyProfile();
+            if (activeDateString) {
+                console.log("🔄 New data ingestion detected. Performing seamless timeline hot-swap...");
+                loadTimeline(activeDateString, true);
+            }
         }
     } catch (err) {
         console.error("Stat fetch failure:", err);
@@ -624,4 +627,90 @@ function switchTab(tabId) {
     }
 }
 window.switchTab = switchTab;
+
+// 🕒 Fetch 24-Hour Bias Performance Profile
+async function fetchHourlyProfile() {
+    const container = document.getElementById('hourly-profile-container');
+    if (!container) return;
+    try {
+        const res = await fetch(`${API_BASE}/api/hourly-performance-profile`);
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div style="color: #64748b; padding: 20px; text-align: center; width: 100%;">No predictive bias logged yet. Run predictions to calibrate.</div>';
+            return;
+        }
+        
+        container.innerHTML = data.map(item => {
+            return `
+                <div class="glass" style="min-width: 170px; flex: 1; padding: 16px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); background: rgba(30, 41, 59, 0.4); display: flex; flex-direction: column; gap: 10px; transition: all 0.3s ease;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; color: white;">${item.display_time}</span>
+                        <span style="font-size: 8px; font-weight: 800; padding: 3px 6px; border-radius: 6px; background: ${item.color_theme}22; border: 1px solid ${item.color_theme}44; color: ${item.color_theme}; letter-spacing: 0.5px;">${item.score}</span>
+                    </div>
+                    
+                    <div style="font-size: 10px; color: #94a3b8; font-weight: 500;">${item.total} Rounds</div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
+                        <div>
+                            <div style="display: flex; justify-content: space-between; font-size: 10px; color: #cbd5e1; margin-bottom: 2px;">
+                                <span>SIZE</span>
+                                <span style="font-weight: 700; color: #06b6d4;">${item.size_accuracy}%</span>
+                            </div>
+                            <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden;">
+                                <div style="width: ${item.size_accuracy}%; height: 100%; background: #06b6d4; border-radius: 2px;"></div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div style="display: flex; justify-content: space-between; font-size: 10px; color: #cbd5e1; margin-bottom: 2px;">
+                                <span>COLOR</span>
+                                <span style="font-weight: 700; color: #a855f7;">${item.color_accuracy}%</span>
+                            </div>
+                            <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden;">
+                                <div style="width: ${item.color_accuracy}%; height: 100%; background: #a855f7; border-radius: 2px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        console.error("Hourly profile load failure:", err);
+    }
+}
+
+// ⚠️ Clear All Predictions (Reset Session Stats)
+async function clearAllPredictions() {
+    if (!confirm("⚠️ WARNING: This will permanently wipe all registered prediction records, resetting all accuracy stats and hourly bias charts to 0%. Are you absolutely sure you want to reset?")) {
+        return;
+    }
+    try {
+        const res = await fetch(`${API_BASE}/api/clear-predictions`, { method: 'POST' });
+        if (res.ok) {
+            alert("✨ Prediction records successfully cleared! Stats reset to fresh state.");
+            fetchStats();
+            fetchHourlyProfile();
+            if (activeTab === 'scalper') {
+                fetchScalperStats();
+            }
+        } else {
+            alert("❌ Failed to clear predictions.");
+        }
+    } catch (err) {
+        console.error("Clear failure:", err);
+    }
+}
+
+// Initialize button event listeners
+setTimeout(() => {
+    const clearDashboardBtn = document.getElementById('clear-dashboard-btn');
+    const clearScalperBtn = document.getElementById('clear-scalper-btn');
+    if (clearDashboardBtn) clearDashboardBtn.addEventListener('click', clearAllPredictions);
+    if (clearScalperBtn) clearScalperBtn.addEventListener('click', clearAllPredictions);
+    
+    // Initial fetch of hourly profile
+    fetchHourlyProfile();
+}, 500);
 

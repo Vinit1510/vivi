@@ -219,7 +219,23 @@ def get_scalper_stats():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/clear-predictions")
+def clear_predictions():
+    success = db.clear_predictions_db()
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to clear predictions record.")
+    return {"status": "success", "message": "Predictions successfully wiped."}
+
+@app.get("/api/hourly-performance-profile")
+def get_hourly_profile():
+    try:
+        profile = db.calculate_hourly_profile()
+        return profile
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Mount entire frontend folder to serve static assets (style.css, app.js) directly at root
+
 
 app.mount("/", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "..", "frontend")), name="frontend")
 

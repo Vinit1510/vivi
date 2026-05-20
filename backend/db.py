@@ -798,3 +798,119 @@ def get_latest_rounds(limit=30):
                 
     db_cache.latest_rounds[limit] = (now, val)
     return val
+
+def clear_predictions_db():
+    """Wipes all records from the predictions database to reset sessions cleanly."""
+    global use_postgres
+    if use_postgres:
+        try:
+            pg_execute("TRUNCATE TABLE predictions;")
+            db_cache.clear()
+            return True
+        except Exception as e:
+            print(f"[PostgresDB Failover] clear_predictions_db failed: {e}. Switching to Excel.")
+            use_postgres = False
+            
+    with excel_lock:
+        try:
+            df = pd.DataFrame(columns=[
+                'id', 'period_id', 'predicted_size', 'predicted_color',
+                'size_confidence', 'color_confidence', 'actual_size',
+                'actual_color', 'size_result', 'color_result', 'is_processed', 'created_at'
+            ])
+            save_preds(df)
+            db_cache.clear()
+            return True
+        except Exception as e:
+            print(f"[ExcelDB Error] clear_predictions_db: {e}")
+            return False
+
+def calculate_hourly_profile():
+    """Analyzes the 24-hour predictive bias profile of Wingo VIVI over all history."""
+    global use_postgres
+    predictions_list = []
+    if use_postgres:
+        try:
+            res = pg_execute("SELECT period_id, size_result, color_result, created_at FROM predictions WHERE is_processed = TRUE;", fetch='all')
+            predictions_list = [{
+                'period_id': str(r['period_id']),
+                'size_result': str(r['size_result']),
+                'color_result': str(r['color_result']),
+                'created_at': r['created_at']
+            } for r in res] if res else []
+        except Exception as e:
+            print(f"[PostgresDB Failover] calculate_hourly_profile failed: {e}. Switching to Excel.")
+            use_postgres = False
+            
+    if not use_postgres:
+        with excel_lock:
+            try:
+                df = load_preds()
+                df_proc = df[df['is_processed'] == True]
+                predictions_list = []
+                for _, row in df_proc.iterrows():
+                    predictions_list.append({
+                        'period_id': str(row['period_id']),
+                        'size_result': str(row['size_result']),
+                        'color_result': str(row['color_result']),
+                        'created_at': row['created_at']
+                    })
+            except Exception:
+                predictions_list = []
+                
+    # Now group by hour of day (from 0 to 23)
+    hourly_stats = {h: {"size_wins": 0, "color_wins": 0, "total": 0} for h in range(24)}
+    
+    for pred in predictions_list:
+        try:
+            created_str = pred.get('created_at')
+            if created_str:
+                hour = int(str(created_str).split()[1].split(':')[0])
+            else:
+                p_id = pred.get('period_id')
+                hour = int(str(p_id)[8:10])
+                
+            if 0 <= hour < 24:
+                hourly_stats[hour]["total"] += 1
+                if pred.get("size_result") == "WIN":
+                    hourly_stats[hour]["size_wins"] += 1
+                if pred.get("color_result") == "WIN":
+                    hourly_stats[hour]["color_wins"] += 1
+        except Exception:
+            continue
+            
+    profile = []
+    for h in range(24):
+        stats = hourly_stats[h]
+        tot = stats["total"]
+        size_pct = round((stats["size_wins"] / tot) * 100) if tot > 0 else 0
+        color_pct = round((stats["color_wins"] / tot) * 100) if tot > 0 else 0
+        
+        avg_pct = (size_pct + color_pct) / 2.0
+        if tot < 5:
+            score = "CALIBRATING"
+            color_theme = "#a855f7"
+        elif avg_pct >= 72.0:
+            score = "HIGH PROFIT"
+            color_theme = "#06b6d4"
+        elif avg_pct >= 58.0:
+            score = "STABLE"
+            color_theme = "#10b981"
+        else:
+            score = "VOLATILE"
+            color_theme = "#f43f5e"
+            
+        profile.append({
+            "hour": h,
+            "display_time": f"{h:02d}:00",
+            "size_wins": stats["size_wins"],
+            "color_wins": stats["color_wins"],
+            "total": tot,
+            "size_accuracy": size_pct,
+            "color_accuracy": color_pct,
+            "score": score,
+            "color_theme": color_theme
+        })
+        
+    return profile
+
