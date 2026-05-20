@@ -23,6 +23,33 @@ if not os.path.exists(PREDS_PATH):
 
 CONFIG_PATH = os.path.abspath(os.path.join(BASE_DIR, "config.json"))
 
+import time
+
+class DbCache:
+    def __init__(self):
+        self.latest_round_id = None
+        self.latest_round_id_time = 0
+        
+        self.total_rounds_count = None
+        self.total_rounds_count_time = 0
+        
+        self.latest_rounds = {}
+        self.available_dates = None
+        self.available_dates_time = 0
+        
+        self.hourly_history = {}
+        
+    def clear(self):
+        self.latest_round_id = None
+        self.total_rounds_count = None
+        self.latest_rounds.clear()
+        self.available_dates = None
+        self.hourly_history.clear()
+        print("[DbCache] Cache cleared successfully due to database mutation.")
+
+db_cache = DbCache()
+
+
 # ==========================================================================
 # POSTGRESQL HYBRID DATABASE ABSTRACTION LAYER (NEON COMPATIBLE)
 # ==========================================================================
@@ -261,41 +288,60 @@ def set_system_config(key, value):
 
 def get_total_rounds_count():
     global use_postgres
+    now = time.time()
+    if db_cache.total_rounds_count is not None and (now - db_cache.total_rounds_count_time < 3.0):
+        return db_cache.total_rounds_count
+        
+    val = 0
     if use_postgres:
         try:
             res = pg_execute("SELECT COUNT(*) FROM rounds;", fetch='one')
-            return res[0] if res else 0
+            val = res[0] if res else 0
         except Exception as e:
             print(f"[PostgresDB Failover] get_total_rounds_count failed: {e}. Switching to Excel.")
             use_postgres = False
             
-    with excel_lock:
-        try:
-            df = load_rounds()
-            return len(df)
-        except Exception:
-            return 0
+    if not use_postgres:
+        with excel_lock:
+            try:
+                df = load_rounds()
+                val = len(df)
+            except Exception:
+                val = 0
+                
+    db_cache.total_rounds_count = val
+    db_cache.total_rounds_count_time = now
+    return val
 
 def get_latest_round_id():
     global use_postgres
+    now = time.time()
+    if db_cache.latest_round_id is not None and (now - db_cache.latest_round_id_time < 3.0):
+        return db_cache.latest_round_id
+        
+    val = 0
     if use_postgres:
         try:
             res = pg_execute("SELECT period_id FROM rounds ORDER BY period_id DESC LIMIT 1;", fetch='one')
-            return int(res[0]) if res else 0
+            val = int(res[0]) if res else 0
         except Exception as e:
             print(f"[PostgresDB Failover] get_latest_round_id failed: {e}. Switching to Excel.")
             use_postgres = False
             
-    with excel_lock:
-        try:
-            df = load_rounds()
-            if len(df) > 0:
-                nums = pd.to_numeric(df['period_id'], errors='coerce').dropna()
-                if len(nums) > 0:
-                    return int(nums.max())
-            return 0
-        except Exception:
-            return 0
+    if not use_postgres:
+        with excel_lock:
+            try:
+                df = load_rounds()
+                if len(df) > 0:
+                    nums = pd.to_numeric(df['period_id'], errors='coerce').dropna()
+                    if len(nums) > 0:
+                        val = int(nums.max())
+            except Exception:
+                val = 0
+                
+    db_cache.latest_round_id = val
+    db_cache.latest_round_id_time = now
+    return val
 
 def add_round(period_id, number, size, color, raw_json):
     global use_postgres
@@ -306,6 +352,7 @@ def add_round(period_id, number, size, color, raw_json):
                 VALUES (%s, %s, %s, %s, %s)
                 ON CONFLICT (period_id) DO NOTHING;
             """, (str(period_id), int(number), str(size), str(color), str(raw_json)))
+            db_cache.clear()
             return True
         except Exception as e:
             print(f"[PostgresDB Failover] add_round failed: {e}. Switching to Excel.")
@@ -333,6 +380,7 @@ def add_round(period_id, number, size, color, raw_json):
             
             df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
             save_rounds(df)
+            db_cache.clear()
             return True
         except Exception as ex:
             print(f"[ExcelDB Error] add_round: {ex}")
@@ -347,6 +395,7 @@ def add_prediction(period_id, predicted_size, predicted_color, size_confidence, 
                 VALUES (%s, %s, %s, %s, %s)
                 ON CONFLICT (period_id) DO NOTHING;
             """, (str(period_id), str(predicted_size), str(predicted_color), float(size_confidence), float(color_confidence)))
+            db_cache.clear()
             return True
         except Exception as e:
             print(f"[PostgresDB Failover] add_prediction failed: {e}. Switching to Excel.")
@@ -379,10 +428,12 @@ def add_prediction(period_id, predicted_size, predicted_color, size_confidence, 
             
             df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
             save_preds(df)
+            db_cache.clear()
             return True
         except Exception as ex:
             print(f"[ExcelDB Error] add_prediction: {ex}")
             return False
+
 
 def check_prediction_exists(period_id):
     global use_postgres
@@ -685,10 +736,16 @@ def get_hourly_history(target_date):
 
 def get_latest_rounds(limit=30):
     global use_postgres
+    now = time.time()
+    cached = db_cache.latest_rounds.get(limit)
+    if cached and (now - cached[0] < 3.0):
+        return cached[1]
+        
+    val = []
     if use_postgres:
         try:
             res = pg_execute("SELECT period_id, number, size, color FROM rounds ORDER BY period_id DESC LIMIT %s", (limit,), fetch='all')
-            return [{
+            val = [{
                 'period_id': str(r['period_id']),
                 'number': int(r['number']),
                 'size': str(r['size']),
@@ -698,24 +755,28 @@ def get_latest_rounds(limit=30):
             print(f"[PostgresDB Failover] get_latest_rounds failed: {e}. Switching to Excel.")
             use_postgres = False
             
-    with excel_lock:
-        try:
-            df = load_rounds()
-            if len(df) == 0:
-                return []
-            
-            # Sort from newest to oldest
-            df['num_period'] = pd.to_numeric(df['period_id'], errors='coerce')
-            df_sorted = df.sort_values("num_period", ascending=False).head(limit)
-            
-            rounds_list = []
-            for _, row in df_sorted.iterrows():
-                rounds_list.append({
-                    'period_id': str(row['period_id']),
-                    'number': int(row['number']),
-                    'size': str(row['size']),
-                    'color': str(row['color'])
-                })
-            return rounds_list
-        except Exception:
-            return []
+    if not use_postgres:
+        with excel_lock:
+            try:
+                df = load_rounds()
+                if len(df) == 0:
+                    val = []
+                else:
+                    # Sort from newest to oldest
+                    df['num_period'] = pd.to_numeric(df['period_id'], errors='coerce')
+                    df_sorted = df.sort_values("num_period", ascending=False).head(limit)
+                    
+                    rounds_list = []
+                    for _, row in df_sorted.iterrows():
+                        rounds_list.append({
+                            'period_id': str(row['period_id']),
+                            'number': int(row['number']),
+                            'size': str(row['size']),
+                            'color': str(row['color'])
+                        })
+                    val = rounds_list
+            except Exception:
+                val = []
+                
+    db_cache.latest_rounds[limit] = (now, val)
+    return val
