@@ -522,9 +522,10 @@ async function fetchScalperStats() {
         const confBarColorScalper = document.getElementById('scalper-conf-color');
         const confTextColorScalper = document.getElementById('scalper-conf-pct-color');
         
-        // Get next forthcoming period ID dynamically
-        const nextPeriodId = currentTotalIngested > 0 ? (currentTotalIngested + 1) : "...";
+        // Get next forthcoming period ID dynamically from API
+        const nextPeriodId = data.next_period || "...";
         scalperPeriodEl.textContent = `PERIOD: ...${nextPeriodId.toString().slice(-6)}`;
+
         
         const fore = data.next_forecast;
         if (fore) {

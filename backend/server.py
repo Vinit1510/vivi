@@ -172,6 +172,10 @@ def get_scalper_stats():
         # 1. Compute next forthcoming round forecast
         next_forecast = brain.predict_scalper_10(all_data[:10])
         
+        # Calculate Wingo's actual next period ID
+        latest_period_id = int(all_data[0].get("period_id"))
+        next_period = str(latest_period_id + 1)
+        
         # 2. Backtest last 15 rounds using preceding 10-period sliding window
         history_list = []
         limit = min(15, len(all_data) - 11)
@@ -207,6 +211,7 @@ def get_scalper_stats():
             })
             
         return {
+            "next_period": next_period,
             "next_forecast": next_forecast,
             "history": history_list
         }
