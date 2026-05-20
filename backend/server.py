@@ -195,7 +195,8 @@ def get_scalper_stats():
             pred_color = pred.get("color")
             
             size_result = "WIN" if str(actual_size).strip().lower() == str(pred_size).strip().lower() else "LOSS"
-            color_result = "WIN" if str(actual_color).strip().lower() == str(pred_color).strip().lower() else "LOSS"
+            color_result = "WIN" if str(pred_color).strip().lower() in str(actual_color).strip().lower() else "LOSS"
+
             
             history_list.append({
                 "period_id": target_round.get("period_id"),
