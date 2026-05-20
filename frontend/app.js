@@ -98,6 +98,17 @@ async function fetchStats() {
         const stats = data.stats;
         const total = stats.total_preds || 0;
         
+        if (total === 0 && newTotal > 15) {
+            console.log("🛠 Empty predictions logged. Triggering automatic self-healing restoration pipeline...");
+            fetch(`${API_BASE}/api/restore-predictions`, { method: 'POST' }).then(r => {
+                if (r.ok) {
+                    console.log("✅ Reconstructed prediction logs successfully!");
+                    fetchStats();
+                    fetchHourlyProfile();
+                }
+            });
+        }
+        
         const sizePct = total > 0 ? Math.round((stats.size_wins / total) * 100) : 0;
         const colorPct = total > 0 ? Math.round((stats.color_wins / total) * 100) : 0;
         
@@ -549,13 +560,33 @@ async function fetchScalperStats() {
         const tbody = document.getElementById('scalper-table-body');
         if (!tbody) return;
         
-        if (!data.history || data.history.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 30px; color: #64748b;">Waiting for data ingestion...</td></tr>`;
+        let history = data.history || [];
+        const clearPeriod = localStorage.getItem('scalper_clear_period_id');
+        if (clearPeriod) {
+            const clearPeriodNum = parseInt(clearPeriod);
+            history = history.filter(row => parseInt(row.period_id) > clearPeriodNum);
+        }
+        
+        if (history.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 30px; color: #64748b; font-weight: 500;">✨ Scalper performance log cleared. Waiting for the next live Wingo draw to populate...</td></tr>`;
+            
+            // Set stats elements to zero
+            const countScalperRoundsEl = document.getElementById('count-scalper-rounds');
+            const accScalperSizeEl = document.getElementById('acc-scalper-size');
+            const fillScalperSizeEl = document.getElementById('fill-scalper-size');
+            const accScalperColorEl = document.getElementById('acc-scalper-color');
+            const fillScalperColorEl = document.getElementById('fill-scalper-color');
+            
+            if (countScalperRoundsEl) countScalperRoundsEl.textContent = "0";
+            if (accScalperSizeEl) accScalperSizeEl.textContent = "0%";
+            if (fillScalperSizeEl) fillScalperSizeEl.style.width = "0%";
+            if (accScalperColorEl) accScalperColorEl.textContent = "0%";
+            if (fillScalperColorEl) fillScalperColorEl.style.width = "0%";
             return;
         }
         
         let html = '';
-        data.history.forEach(row => {
+        history.forEach(row => {
             const sizeBadge = row.size_result === 'WIN' ? '<span class="badge win">WIN</span>' : '<span class="badge loss">LOSS</span>';
             const colorBadge = row.color_result === 'WIN' ? '<span class="badge win">WIN</span>' : '<span class="badge loss">LOSS</span>';
             
@@ -578,9 +609,9 @@ async function fetchScalperStats() {
         tbody.innerHTML = html;
         
         // 3. Compute and update Scalper Accuracy stats dynamically (mirroring the main dashboard)
-        const totalWins = data.history.length;
-        const sizeWins = data.history.filter(row => row.size_result === 'WIN').length;
-        const colorWins = data.history.filter(row => row.color_result === 'WIN').length;
+        const totalWins = history.length;
+        const sizeWins = history.filter(row => row.size_result === 'WIN').length;
+        const colorWins = history.filter(row => row.color_result === 'WIN').length;
         
         const sizePct = totalWins > 0 ? Math.round((sizeWins / totalWins) * 100) : 0;
         const colorPct = totalWins > 0 ? Math.round((colorWins / totalWins) * 100) : 0;
@@ -681,34 +712,33 @@ async function fetchHourlyProfile() {
     }
 }
 
-// ⚠️ Clear All Predictions (Reset Session Stats)
-async function clearAllPredictions() {
-    if (!confirm("⚠️ WARNING: This will permanently wipe all registered prediction records, resetting all accuracy stats and hourly bias charts to 0%. Are you absolutely sure you want to reset?")) {
+// ⚠️ Clear Scalper Records (Virtual Session Reset)
+async function clearScalperRecords() {
+    if (!confirm("⚠️ Are you sure you want to clear your current Scalper session stats? This resets the accuracy meters to 0% and starts a fresh log, but your core ML database remains 100% untouched!")) {
         return;
     }
     try {
-        const res = await fetch(`${API_BASE}/api/clear-predictions`, { method: 'POST' });
+        const res = await fetch(`${API_BASE}/api/dashboard-stats`);
         if (res.ok) {
-            alert("✨ Prediction records successfully cleared! Stats reset to fresh state.");
-            fetchStats();
-            fetchHourlyProfile();
-            if (activeTab === 'scalper') {
+            const data = await res.json();
+            const latestId = data.next_period ? parseInt(data.next_period) - 1 : null;
+            if (latestId) {
+                localStorage.setItem('scalper_clear_period_id', latestId.toString());
+                alert("✨ Scalper performance logs successfully cleared for this session!");
                 fetchScalperStats();
+            } else {
+                alert("❌ Failed to resolve latest Wingo period. Try again in a moment.");
             }
-        } else {
-            alert("❌ Failed to clear predictions.");
         }
     } catch (err) {
-        console.error("Clear failure:", err);
+        console.error("Scalper clear error:", err);
     }
 }
 
 // Initialize button event listeners
 setTimeout(() => {
-    const clearDashboardBtn = document.getElementById('clear-dashboard-btn');
     const clearScalperBtn = document.getElementById('clear-scalper-btn');
-    if (clearDashboardBtn) clearDashboardBtn.addEventListener('click', clearAllPredictions);
-    if (clearScalperBtn) clearScalperBtn.addEventListener('click', clearAllPredictions);
+    if (clearScalperBtn) clearScalperBtn.addEventListener('click', clearScalperRecords);
     
     // Initial fetch of hourly profile
     fetchHourlyProfile();

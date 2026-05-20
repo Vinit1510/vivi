@@ -25,6 +25,10 @@ app.add_middleware(
 def startup_event():
     print("--- 🚀 Starting VIVI Backend Node (Excel DB Mode) ---")
     miner.run_in_background()
+    try:
+        db.restore_predictions_from_rounds()
+    except Exception as ex:
+        print(f"[Startup Warning] Auto-restoration error: {ex}")
     print("VIVI System Fully Online.")
 
 # Root path serves Index.html
@@ -216,6 +220,16 @@ def get_scalper_stats():
             "next_forecast": next_forecast,
             "history": history_list
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/restore-predictions")
+def restore_predictions():
+    try:
+        success = db.restore_predictions_from_rounds()
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to restore prediction logs.")
+        return {"status": "success", "message": "Prediction logs reconstructed successfully."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
