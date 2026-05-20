@@ -87,7 +87,10 @@
             </button>
         </div>
         
-        <div class="nav-controls">
+        <div class="nav-controls" style="display: flex; align-items: center; gap: 15px;">
+            <button class="theme-toggle-btn" id="btn-toggle-theme" title="Toggle Light/Dark Mode" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: var(--text-primary); width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s ease;">
+                <span class="material-symbols-rounded" id="theme-icon" style="font-size: 20px;">light_mode</span>
+            </button>
             <div class="live-clock" id="clock">00:00:00</div>
         </div>
     </nav>

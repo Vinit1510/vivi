@@ -712,5 +712,29 @@ setTimeout(() => {
     
     // Initial fetch of hourly profile
     fetchHourlyProfile();
+    
+    // ☀️/🌙 Theme Toggle Engine
+    const themeBtn = document.getElementById('btn-toggle-theme');
+    const themeIcon = document.getElementById('theme-icon');
+
+    // Read existing theme preference
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    if (savedTheme === 'light') {
+        document.documentElement.classList.add('light-theme');
+        if (themeIcon) themeIcon.textContent = 'dark_mode';
+    } else {
+        document.documentElement.classList.remove('light-theme');
+        if (themeIcon) themeIcon.textContent = 'light_mode';
+    }
+
+    if (themeBtn) {
+        themeBtn.addEventListener('click', () => {
+            const isLight = document.documentElement.classList.toggle('light-theme');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            if (themeIcon) {
+                themeIcon.textContent = isLight ? 'dark_mode' : 'light_mode';
+            }
+        });
+    }
 }, 500);
 

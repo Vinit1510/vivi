@@ -12,6 +12,112 @@
     --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
+:root.light-theme {
+    --bg-dark: #f1f5f9;        /* slate-100 - Ultra-clean light background */
+    --bg-lighter: #ffffff;     /* White card background */
+    --accent-cyan: #0891b2;    /* Darker cyan for text contrast */
+    --accent-pink: #db2777;    /* Darker pink for text contrast */
+    --accent-purple: #7c3aed;  /* Darker purple for text contrast */
+    --accent-green: #059669;   /* Darker green for text contrast */
+    --text-primary: #0f172a;   /* slate-900 - Deep slate grey text */
+    --text-secondary: #475569; /* slate-600 - Readable subtext */
+    --glass-bg: rgba(255, 255, 255, 0.85); /* Highly opaque white card */
+    --glass-border: rgba(0, 0, 0, 0.08);   /* Darker delicate border */
+    --glass-shadow: 0 8px 32px 0 rgba(15, 23, 42, 0.04); /* Extremely soft shadow */
+}
+
+/* Light Mode Core Ambient Adjustments */
+:root.light-theme body {
+    background-color: var(--bg-dark);
+    background-image: 
+        radial-gradient(circle at 15% 50%, rgba(124, 58, 237, 0.04), transparent 25%),
+        radial-gradient(circle at 85% 30%, rgba(8, 145, 178, 0.04), transparent 25%),
+        linear-gradient(to right, rgba(0,0,0,0.02) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0,0,0,0.02) 1px, transparent 1px) !important;
+}
+
+:root.light-theme body::before {
+    background: radial-gradient(circle at center, transparent, rgba(241, 245, 249, 0.5) 100%) !important;
+}
+
+:root.light-theme .blob-1 {
+    background: rgba(124, 58, 237, 0.08) !important;
+}
+:root.light-theme .blob-2 {
+    background: rgba(59, 130, 246, 0.08) !important;
+}
+
+/* Intercept and correct hardcoded dark-mode inline styles */
+:root.light-theme * {
+    text-shadow: none !important;
+}
+
+:root.light-theme [style*="color: white"],
+:root.light-theme [style*="color:white"],
+:root.light-theme [style*="color: #fff"],
+:root.light-theme [style*="color:#fff"],
+:root.light-theme [style*="color: #ffffff"],
+:root.light-theme [style*="color:#ffffff"],
+:root.light-theme [style*="color: rgba(255,255,255"],
+:root.light-theme [style*="color:rgba(255,255,255"],
+:root.light-theme [style*="color: #e2e8f0"],
+:root.light-theme [style*="color:#e2e8f0"] {
+    color: var(--text-primary) !important;
+}
+
+:root.light-theme [style*="color: #94a3b8"],
+:root.light-theme [style*="color:#94a3b8"],
+:root.light-theme [style*="color: #cbd5e1"],
+:root.light-theme [style*="color:#cbd5e1"],
+:root.light-theme [style*="color: #a0aec0"],
+:root.light-theme [style*="color:#a0aec0"] {
+    color: var(--text-secondary) !important;
+}
+
+:root.light-theme [style*="background: rgba(255, 255, 255, 0.04)"],
+:root.light-theme [style*="background:rgba(255,255,255,0.04)"],
+:root.light-theme [style*="background: rgba(30, 41, 59, 0.4)"] {
+    background: rgba(255, 255, 255, 0.95) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+:root.light-theme .theme-toggle-btn {
+    background: rgba(0, 0, 0, 0.04) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Table light mode polish */
+:root.light-theme th {
+    background: rgba(0, 0, 0, 0.03) !important;
+    color: var(--text-secondary) !important;
+}
+:root.light-theme td {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04) !important;
+}
+:root.light-theme tr:hover {
+    background: rgba(0, 0, 0, 0.02) !important;
+}
+
+/* Accordion light mode adjustments */
+:root.light-theme .hour-card {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+:root.light-theme .hour-card.expanded {
+    background: #ffffff !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04) !important;
+}
+:root.light-theme .hour-header {
+    background: rgba(0, 0, 0, 0.01) !important;
+}
+:root.light-theme .hour-header:hover {
+    background: rgba(0, 0, 0, 0.03) !important;
+}
+:root.light-theme .hour-count {
+    background: rgba(0, 0, 0, 0.04) !important;
+    color: var(--text-secondary) !important;
+}
+
 * {
     margin: 0;
     padding: 0;
