@@ -532,6 +532,24 @@ def update_prediction_outcomes(period_id, actual_size, actual_color):
             print(f"[ExcelDB Error] update_prediction_outcomes: {ex}")
             return False
 
+def get_prediction_results_map():
+    """Returns a dictionary mapping period_id -> size_result and color_result for RL retraining."""
+    global use_postgres
+    if use_postgres:
+        try:
+            res = pg_execute("SELECT period_id, size_result, color_result FROM predictions WHERE is_processed = TRUE;", fetch='all')
+            return {str(r['period_id']): (r['size_result'], r['color_result']) for r in res} if res else {}
+        except Exception:
+            pass
+            
+    with excel_lock:
+        try:
+            df = load_preds()
+            df_proc = df[df['is_processed'] == True]
+            return {str(row['period_id']).strip().split('.')[0]: (row['size_result'], row['color_result']) for _, row in df_proc.iterrows()}
+        except Exception:
+            return {}
+
 def get_accuracy_stats():
     global use_postgres
     if use_postgres:

@@ -144,13 +144,38 @@ class MLBrain:
                 y_size = df_clean['size_encoded']
                 y_color = df_clean['color_encoded']
                 
-                # Assign a chronological weight slope for the last 500 rounds (Linear increase from 1.0 to 5.0!)
+                # 1. Initialize Dual-Model Weights for Adaptive Error-Reinforcement Boosting (AERB)
                 n_samples = len(df_clean)
-                weights = np.ones(n_samples)
-                if n_samples > 500:
-                    weights[-500:] = np.linspace(1.0, 5.0, 500)
+                size_weights = np.ones(n_samples)
+                color_weights = np.ones(n_samples)
                 
-                print("[MLBrain] Fitting High-Performance Random Forest Classifiers...")
+                # Fetch past predictions outcomes map
+                pred_map = db.get_prediction_results_map()
+                
+                # Apply Reinforcement Learning weights to past wins/losses
+                for idx in range(n_samples):
+                    p_id = str(df_clean.loc[idx, 'period_id']).strip().split('.')[0]
+                    if p_id in pred_map:
+                        size_res, color_res = pred_map[p_id]
+                        # Size weight reinforcement
+                        if size_res == 'LOSS':
+                            size_weights[idx] = 3.5  # Heavy penalty focus: forces Random Forest splits to correct errors!
+                        elif size_res == 'WIN':
+                            size_weights[idx] = 1.25 # Success reinforcement
+                            
+                        # Color weight reinforcement
+                        if color_res == 'LOSS':
+                            color_weights[idx] = 3.5  # Heavy penalty focus: forces splits to correct errors
+                        elif color_res == 'WIN':
+                            color_weights[idx] = 1.25 # Success reinforcement
+                
+                # 2. Layer Chronological Weight Slope for the last 500 rounds
+                if n_samples > 500:
+                    slope = np.linspace(1.0, 5.0, 500)
+                    size_weights[-500:] *= slope
+                    color_weights[-500:] *= slope
+                
+                print("[MLBrain] Fitting High-Performance Random Forest Classifiers with AERB Reinforcement...")
                 
                 # Initialize classifiers optimized to prevent overfitting on highly random distributions
                 self.size_model = RandomForestClassifier(
@@ -160,7 +185,7 @@ class MLBrain:
                     random_state=42, 
                     n_jobs=-1
                 )
-                self.size_model.fit(X, y_size, sample_weight=weights)
+                self.size_model.fit(X, y_size, sample_weight=size_weights)
                 
                 self.color_model = RandomForestClassifier(
                     n_estimators=250, 
@@ -169,7 +194,7 @@ class MLBrain:
                     random_state=42, 
                     n_jobs=-1
                 )
-                self.color_model.fit(X, y_color, sample_weight=weights)
+                self.color_model.fit(X, y_color, sample_weight=color_weights)
                 
                 self.features_list = features
                 self.is_trained = True
